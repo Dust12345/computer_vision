@@ -1,0 +1,206 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{B6CDF435-82BD-4014-8109-6E5E7537D9C8}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Frame.VrAibo</RootNamespace>
+    <AssemblyName>Frame.VrAibo</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkProfile>
+    </TargetFrameworkProfile>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <PlatformTarget>x86</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>Build\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <PlatformTarget>x86</PlatformTarget>
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>Build\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <CustomAfterMicrosoftCommonTargets>$(MSBuildProjectDirectory)\.targets\glab.default.targets</CustomAfterMicrosoftCommonTargets>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <Reference>
+      <Private>False</Private>
+    </Reference>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <Reference Include="Emgu.CV, Version=2.2.1.1150, Culture=neutral, PublicKeyToken=7281126722ab4438, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>.\Emgu.CV.DLL</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Emgu.Util, Version=2.2.1.1150, Culture=neutral, PublicKeyToken=7281126722ab4438, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>.\Emgu.Util.DLL</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="GLab.Core, Version=2.2.0.0, Culture=neutral, PublicKeyToken=4fd27f5a264e9ff1, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\Build\$(Configuration)\Libs\GLab.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="GLab.FractalTerrain, Version=2.2.0.0, Culture=neutral, PublicKeyToken=d6d9300585bca82d, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\Build\$(Configuration)\Libs\GLab.FractalTerrain.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="GLab.Rendering, Version=2.2.0.0, Culture=neutral, PublicKeyToken=f0b7d2366f1e2351, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\Build\$(Configuration)\Libs\GLab.Rendering.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="GLab.StereoVision, Version=2.2.0.0, Culture=neutral, PublicKeyToken=2c9e0a813d6bc762, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\Build\$(Configuration)\Libs\GLab.StereoVision.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="GLab.VirtualAibo, Version=2.2.0.0, Culture=neutral, PublicKeyToken=2883766350373923, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\Build\$(Configuration)\Libs\GLab.VirtualAibo.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Xna.Framework, Version=4.0.0.0, Culture=neutral, PublicKeyToken=842cf8be1de50553, processorArchitecture=x86" />
+    <Reference Include="Microsoft.Xna.Framework.Graphics, Version=4.0.0.0, Culture=neutral, PublicKeyToken=842cf8be1de50553, processorArchitecture=x86" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Deployment" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="ComputerVision.cs" />
+    <Compile Include="ImageOperations.cs" />
+    <Compile Include="ParcoursTerrain.cs" />
+    <Compile Include="StateMachine.cs" />
+    <Compile Include="StereoVision.cs" />
+    <Compile Include="Stripe01.cs" />
+    <Compile Include="Stripe02.cs" />
+    <Compile Include="Stripe03.cs" />
+    <Compile Include="Stripe.cs" />
+    <Compile Include="StripeTreasure.cs" />
+    <Compile Include="Stripe00.cs" />
+    <Compile Include="Parcours00.cs" />
+    <Compile Include="Parcours01.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Parcours02.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Parcours03.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="cvextern.dll">
+      <InProject>false</InProject>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="opencv_calib3d2410.dll">
+      <InProject>false</InProject>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="opencv_contrib2410.dll">
+      <InProject>false</InProject>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="opencv_core2410.dll">
+      <InProject>false</InProject>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="opencv_features2d2410.dll">
+      <InProject>false</InProject>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="opencv_ffmpeg2410.dll">
+      <InProject>false</InProject>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="opencv_flann2410.dll">
+      <InProject>false</InProject>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="opencv_gpu2410.dll">
+      <InProject>false</InProject>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="opencv_highgui2410.dll">
+      <InProject>false</InProject>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="opencv_imgproc2410.dll">
+      <InProject>false</InProject>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="opencv_legacy2410.dll">
+      <InProject>false</InProject>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="opencv_ml2410.dll">
+      <InProject>false</InProject>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="opencv_objdetect2410.dll">
+      <InProject>false</InProject>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="opencv_video2410.dll">
+      <InProject>false</InProject>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>xcopy /y /d  "$(ProjectDir)opencv_videostab2410.dll" "$(ProjectDir)$(OutDir)"
+xcopy /y /d  "$(ProjectDir)opencv_superres2410.dll" "$(ProjectDir)$(OutDir)"
+xcopy /y /d  "$(ProjectDir)opencv_stitching2410.dll" "$(ProjectDir)$(OutDir)"
+xcopy /y /d  "$(ProjectDir)opencv_nonfree2410.dll" "$(ProjectDir)$(OutDir)"
+xcopy /y /d  "$(ProjectDir)opencv_photo2410.dll" "$(ProjectDir)$(OutDir)"</PostBuildEvent>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PreBuildEvent>
+    </PreBuildEvent>
+  </PropertyGroup>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
