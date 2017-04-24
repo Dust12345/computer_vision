@@ -99,7 +99,6 @@
     <Compile Include="NodeNavigator\Node.cs" />
     <Compile Include="NodeNavigator\NodeNavigator.cs" />
     <Compile Include="ParcoursTerrain.cs" />
-    <Compile Include="StateMachine.cs" />
     <Compile Include="StereoVision.cs" />
     <Compile Include="Stripe01.cs" />
     <Compile Include="Stripe02.cs" />

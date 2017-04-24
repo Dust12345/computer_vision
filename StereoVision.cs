@@ -48,7 +48,7 @@ namespace Frame.VrAibo
         private GLab.StereoVision.StereoVision _stereoVision;
         private double lastDepth = 0;
 
-        private StateMachine sm;
+        //private StateMachine sm;
 
         float distMovedTillLastTurn = 0;
 
@@ -101,7 +101,7 @@ namespace Frame.VrAibo
         public override void Setup()
         {
 
-            sm = new StateMachine();
+            //sm = new StateMachine();
 
             movePairs = new List<MovePair>();
 
