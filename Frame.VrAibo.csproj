@@ -94,6 +94,10 @@
   <ItemGroup>
     <Compile Include="ComputerVision.cs" />
     <Compile Include="ImageOperations.cs" />
+    <Compile Include="MovementConsenter\MovementConsenter.cs" />
+    <Compile Include="NodeNavigator\MovementStep.cs" />
+    <Compile Include="NodeNavigator\Node.cs" />
+    <Compile Include="NodeNavigator\NodeNavigator.cs" />
     <Compile Include="ParcoursTerrain.cs" />
     <Compile Include="StateMachine.cs" />
     <Compile Include="StereoVision.cs" />
