@@ -448,6 +448,8 @@ namespace Frame.VrAibo
         }
 
 
+        
+
         private bool checkIfvalidPath(int start, int end, int heigth, Image<Rgb, byte> img,int scanDist)
         {
             int center = (end - ((end - start) / 2));
@@ -474,9 +476,78 @@ namespace Frame.VrAibo
 
             img.Draw(ls1, new Rgb(0, 0, 255), 2);
             return true;
-        }        
-       
-        
+        }
+
+        private bool scanForSidePathRigth(Image<Rgb, byte> img, int scanHeigth, int minSegmentLength)
+        {
+
+            int sameColorPixels = 0;
+
+            Rgb pathColor = img[scanHeigth, 0];
+
+
+            //the path we are intereted in should start at the rigth side of the image, if the path would lie in the center of the image the normal side image eval algo would have detected that path
+            for (int i = 0; i < img.Width; i++)
+            {
+                //check whether the pixel still is of the color we are looking for
+                if (pathColor.Blue == img[scanHeigth, i].Blue && pathColor.Red == img[scanHeigth, i].Red && pathColor.Green == img[scanHeigth, i].Green)
+                {
+                    sameColorPixels++;
+                }
+                else
+                {
+                    //a different color was scanned, check if we saw enough pixel
+                    if (sameColorPixels >= minSegmentLength)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+
+            }
+
+            //realisticly this should never be reached
+            return false;
+        }
+
+
+        private bool scanForSidePathLeft(Image<Rgb, byte> img, int scanHeigth, int minSegmentLength)
+        {
+
+            int sameColorPixels = 0;
+
+            Rgb pathColor = img[scanHeigth, img.Width-1];
+
+
+            //the path we are intereted in should start at the rigth side of the image, if the path would lie in the center of the image the normal side image eval algo would have detected that path
+            for (int i = img.Width-1; i >0 ; i--)
+            {
+                //check whether the pixel still is of the color we are looking for
+                if (pathColor.Blue == img[scanHeigth, i].Blue && pathColor.Red == img[scanHeigth, i].Red && pathColor.Green == img[scanHeigth, i].Green)
+                {
+                    sameColorPixels++;
+                }
+                else
+                {
+                    //a different color was scanned, check if we saw enough pixel
+                    if (sameColorPixels >= minSegmentLength)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+
+            }
+
+                //realisticly this should never be reached
+                return false;
+        }
 
 
         private void moveBasedOnImage()
@@ -493,9 +564,13 @@ namespace Frame.VrAibo
             int minMoveDistanceTillNextTurn = 10;
 
             bool frontOK = false;
-            
 
-            int scanHeigth = GLab.VirtualAibo.VrAibo.SurfaceHeight - 20;
+            int lookAheadDistance = 10;
+
+        
+            int scanHeigth = GLab.VirtualAibo.VrAibo.SurfaceHeight - 10;
+
+            bool isTurn = false;
 
             scanForPath(front, scanHeigth, out lineStartFront, out lineEndFront);
 
@@ -504,9 +579,7 @@ namespace Frame.VrAibo
             {
                 LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(lineStartFront, scanHeigth), new System.Drawing.Point(lineEndFront, scanHeigth));
 
-               frontOK = checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, 20);
-
-               
+                frontOK = checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance);              
 
                 front.Draw(ls, new Rgb(0, 0, 255), 2);
             }
@@ -629,11 +702,11 @@ namespace Frame.VrAibo
                         int eDiff = Math.Abs(lastFrontEnd- lineEndFront);
 
 
-                        if (sDiff > 30)
+                       /* if (sDiff > 30)
                         {
                             Logger.Instance.LogInfo("hard turn triggred");
                             phi = phi * 4;
-                        }
+                        }*/
 
                         if (phi != 0.0f)
                         {
@@ -705,170 +778,52 @@ namespace Frame.VrAibo
                 }
                 else
                 {
+                    
+
                     //front not ok
                     Logger.Instance.LogInfo("Front not ok");
                     Logger.Instance.LogInfo("line start "+ lineStartFront);
                     Logger.Instance.LogInfo("line end " + lineEndFront);
 
+
+                    //chech whether this realy is a dead end
+                    //there is the possibility that a T shaped intersection or a simple turn is view as a dead end,
+                    //because the end of the path is reached, while the side views to not enoug of the side paths to detect them
+
+                    int sideScanHeigth = GLab.VirtualAibo.VrAibo.SurfaceHeight - 20;
+
+
+                    bool leftScanResult = scanForSidePathLeft(left, sideScanHeigth, 10);
+                    bool rigthScanResult = scanForSidePathRigth(rigth, sideScanHeigth, 10);
+
+                    if (leftScanResult && !rigthScanResult)
+                    {
+                        //simpe left turn
+                        _vrAibo.Walk(AiboSpeed);
+                        _vrAibo.Turn(90);
+                        return;
+                    }
+                    else if (!leftScanResult && rigthScanResult)
+                    {
+                        //simple rigth turn
+                        _vrAibo.Walk(AiboSpeed);
+                        _vrAibo.Turn(-90);
+                        return;
+                    }
+                    else{
+                        //T intersection
+                    }
+
+                  
+
                     _vrAibo.Turn(180);
                     moveBack = true;
-                    return;
-
-
-                    //check if there is a path to the left an rigth
-                    if (lineStartFront == 0)
-                    {
-                        MovePair mp = new MovePair();
-                        //possible path to the left
-                        _vrAibo.Turn(-90);
-                        _vrAibo.Walk(AiboSpeed);
-                        distMovedTillLastTurn += AiboSpeed;
-
-                      
-                        mp.movement = AiboSpeed;
-                        mp.turn = -90;
-                        movePairs.Add(mp);
-
-
-                    }
-                    else if (lineEndFront == front.Width)
-                    {
-                        MovePair mp = new MovePair();
-                        //possible path to the left
-                        _vrAibo.Turn(90);
-                        //_vrAibo.Walk(AiboSpeed);
-                        //distMovedTillLastTurn += AiboSpeed;
-
-                       
-                        //mp.movement = AiboSpeed;
-                        mp.turn = 90;
-                        movePairs.Add(mp);
-                    }else
-                    {
-                        _vrAibo.Turn(180);
-                        moveBack = true;
-                    }
-                  
+                    return;                  
                 }
 
             }
 
             return;
-
-            //check which ways we could move
-            if (frontOK)
-            {
-
-                Logger.Instance.LogInfo("Front ok");
-
-                if ((!LeftOK && !rigthOK) || distMovedTillLastTurn < minMoveDistanceTillNextTurn)
-                {
-
-                    Logger.Instance.LogInfo("new intersection " + (distMovedTillLastTurn < minMoveDistanceTillNextTurn));
-                   
-                    //only way to move it forward
-                    int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (lineEndFront - ((lineEndFront - lineStartFront) / 2));
-                    float phi = Alpha * diffX;
-
-                      MovePair mp = new MovePair();
-                    mp.movement = AiboSpeed;
-
-                    if (phi != 0.0f)
-                    {
-                        //Logger.Instance.LogInfo("Turning by " + phi + " degree");
-                        _vrAibo.Turn(phi / 2);
-                        mp.turn = phi / 2;                         
-                    }
-
-                   
-
-                    _vrAibo.Walk(AiboSpeed);
-                    movePairs.Add(mp);                    
-                    distMovedTillLastTurn += AiboSpeed;                
-                }
-                else
-                {
-
-                    Logger.Instance.LogInfo("checking intersection");
-
-                    distMovedTillLastTurn = 0;
-                    //check if the last point marks an intersection
-
-                    MovePair mp;
-                    if (movePairs.Count == 1 && movePairs[0].isIntersection)
-                    {
-                        Logger.Instance.LogInfo("Intersection already know");
-                        //save the intersection pair
-                        mp = movePairs[0];
-                        movePairs.Clear();
-                    }
-                    else
-                    {
-                        Logger.Instance.LogInfo("new intersection");
-                        mp = new MovePair();
-                        mp.left = LeftOK;
-                        mp.froont = true;
-                        mp.rigth = rigthOK;
-                        movePairs.Clear();
-                    }               
-
-                    mp.isIntersection = true;
-
-                    //a side path was detected
-                    if (mp.rigth)
-                    {
-                        _vrAibo.Turn(-90);
-                        _vrAibo.Walk(AiboSpeed);
-                        distMovedTillLastTurn += AiboSpeed;
-
-                        mp.rigth = false;
-                        mp.movement = AiboSpeed;
-                        mp.turn = -90;
-                        movePairs.Add(mp);
-                    }
-                    else if(mp.left)
-                    {
-                        mp.left = false;
-                        _vrAibo.Turn(90);
-                        _vrAibo.Walk(AiboSpeed);
-                        distMovedTillLastTurn += AiboSpeed;
-                      
-                        mp.movement = AiboSpeed;
-                        mp.turn = 90;
-                        movePairs.Add(mp);
-                    }
-                    else
-                    {
-
-
-                        Logger.Instance.LogInfo("check forward");
-                        //only way to move it forward
-                        int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (lineEndFront - ((lineEndFront - lineStartFront) / 2));
-                        float phi = Alpha * diffX;
-                        mp.froont = false;
-                      
-                        mp.movement = AiboSpeed;
-
-                        if (phi != 0.0f)
-                        {
-                            //Logger.Instance.LogInfo("Turning by " + phi + " degree");
-                            _vrAibo.Turn(phi / 2);
-                            mp.turn = phi / 2;
-                        }
-
-                        _vrAibo.Walk(AiboSpeed);
-                        movePairs.Add(mp);
-                        distMovedTillLastTurn += AiboSpeed;  
-                    }
-                }
-            }
-            else
-            {
-                //front not ok
-                _vrAibo.Turn(180);
-                moveBack = true;
-            }
-
 
         }
 
