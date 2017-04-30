@@ -118,8 +118,12 @@ namespace Frame.VrAibo
                                           };
 
             // Creates a new Virtual Aibo
-            _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.4f, 35) };
+            //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.4f, 35) };
 
+
+            _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.047f, -12.66f) };
+
+            //{X:0,04798115 Y:-12,66051}
 
 
             
@@ -404,7 +408,7 @@ namespace Frame.VrAibo
             return false;
         }
 
-        private void scanForPath(Image<Rgb, byte> img, int heigth, out int lineStart, out int lineEnd)
+        private bool scanForPath(Image<Rgb, byte> img, int heigth, out int lineStart, out int lineEnd)
         {
 
             lineStart = 0;
@@ -439,12 +443,12 @@ namespace Frame.VrAibo
                 //cherck if this was the path
                 if (puixelOfSameColor >= pathMinThreshold)
                 {                   
-                    return;
+                    return true;
                 }
 
             }
 
-            return;
+            return false;
         }
 
 
@@ -552,10 +556,7 @@ namespace Frame.VrAibo
 
         private void moveBasedOnImage()
         {
-
             Logger.Instance.LogInfo("----------------------------------");
-
-
 
             //save the values from the last interation for comparison
             lastFrontStart = lineStartFront;
@@ -568,9 +569,7 @@ namespace Frame.VrAibo
             int lookAheadDistance = 10;
 
         
-            int scanHeigth = GLab.VirtualAibo.VrAibo.SurfaceHeight - 10;
-
-            bool isTurn = false;
+            int scanHeigth = GLab.VirtualAibo.VrAibo.SurfaceHeight - 10;           
 
             scanForPath(front, scanHeigth, out lineStartFront, out lineEndFront);
 
@@ -590,10 +589,10 @@ namespace Frame.VrAibo
 
             bool LeftOK = false;
 
-            scanForPath(left, scanHeigth, out lineStartLeft, out lineEndLeft);
+            bool pathFound = scanForPath(left, scanHeigth, out lineStartLeft, out lineEndLeft);
 
             //check if the return values suggest that ther is a path
-            if (lineStartLeft != -1 && lineEndLeft != -1 && isSidePath(lineStartLeft,lineEndLeft,left.Width))
+            if (pathFound && lineStartLeft != -1 && lineEndLeft != -1 && isSidePath(lineStartLeft, lineEndLeft, left.Width))
             {
                 LeftOK = checkIfvalidPath(lineStartLeft, lineEndLeft, scanHeigth, left, 20);
 
@@ -608,14 +607,19 @@ namespace Frame.VrAibo
             bool rigthOK = false;
 
 
-            scanForPath(rigth, scanHeigth, out lineStartRigth, out lineEndRigth);
+            pathFound = scanForPath(rigth, scanHeigth, out lineStartRigth, out lineEndRigth);
 
+
+          
             //check if the return values suggest that ther is a path
-            if (lineStartRigth != -1 && lineEndRigth != -1 && isSidePath(lineStartRigth, lineEndRigth, rigth.Width))
+            if (pathFound && lineStartRigth != -1 && lineEndRigth != -1 && isSidePath(lineStartRigth, lineEndRigth, rigth.Width))
             {
                 rigthOK = checkIfvalidPath(lineStartRigth, lineEndRigth, scanHeigth, rigth, 20);
 
+                
+
                 LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(lineStartRigth, scanHeigth), new System.Drawing.Point(lineEndRigth, scanHeigth));
+                
                 rigth.Draw(ls, new Rgb(0, 0, 255), 2);
             }
 
@@ -677,13 +681,17 @@ namespace Frame.VrAibo
             }
             else
             {
-                //not directly on an intersection
-                Logger.Instance.LogInfo("Not on intersection");
+                //not directly on an old intersection             
 
                 //check of the front is clear
                 if (frontOK)
                 {
                     Logger.Instance.LogInfo("Front ok");
+                    Logger.Instance.LogInfo("Status R: "+rigthOK);
+                    Logger.Instance.LogInfo("Min Status: " + (distMovedTillLastTurn < minMoveDistanceTillNextTurn));
+                    Logger.Instance.LogInfo("Moved: " + distMovedTillLastTurn + " must move: " + minMoveDistanceTillNextTurn);
+                    
+
 
                     //check if there are no side paths or if we ignore them because we just turned
                     if ((!LeftOK && !rigthOK) || distMovedTillLastTurn < minMoveDistanceTillNextTurn)
@@ -801,6 +809,7 @@ namespace Frame.VrAibo
                         //simpe left turn
                         _vrAibo.Walk(AiboSpeed);
                         _vrAibo.Turn(90);
+                        distMovedTillLastTurn = 0;
                         return;
                     }
                     else if (!leftScanResult && rigthScanResult)
@@ -808,9 +817,11 @@ namespace Frame.VrAibo
                         //simple rigth turn
                         _vrAibo.Walk(AiboSpeed);
                         _vrAibo.Turn(-90);
+                        distMovedTillLastTurn = 0;
                         return;
                     }
                     else{
+                        distMovedTillLastTurn = 0;
                         //T intersection
                     }
 
@@ -973,6 +984,7 @@ namespace Frame.VrAibo
                     //Logger.Instance.LogInfo("All Pics taken");
                     moveBasedOnImage();
 
+                    Logger.Instance.LogInfo("At pos "+_vrAibo.Position);
                     frontWindow.SetImage(front);
                     leftWindow.SetImage(left);
                     rigthWindow.SetImage(rigth);
