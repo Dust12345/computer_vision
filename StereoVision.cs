@@ -48,7 +48,7 @@ namespace Frame.VrAibo
         private GLab.StereoVision.StereoVision _stereoVision;
         private double lastDepth = 0;
 
-        //private StateMachine sm;
+        MovementConsenter.MovementConsenter mc;
 
         float distMovedTillLastTurn = 0;
 
@@ -123,13 +123,16 @@ namespace Frame.VrAibo
 
             _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.047f, -12.66f) };
 
+            
             //{X:0,04798115 Y:-12,66051}
 
 
             
           //  _vrAibo.Position.X =  0.4;
            //  _vrAibo.Position.Y =  34.7;
-            
+
+            mc = new MovementConsenter.MovementConsenter(_vrAibo);
+
 
             /*
              * TREASURE LAB TASK
@@ -615,11 +618,7 @@ namespace Frame.VrAibo
             if (pathFound && lineStartRigth != -1 && lineEndRigth != -1 && isSidePath(lineStartRigth, lineEndRigth, rigth.Width))
             {
                 rigthOK = checkIfvalidPath(lineStartRigth, lineEndRigth, scanHeigth, rigth, 20);
-
-                
-
                 LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(lineStartRigth, scanHeigth), new System.Drawing.Point(lineEndRigth, scanHeigth));
-                
                 rigth.Draw(ls, new Rgb(0, 0, 255), 2);
             }
 
@@ -640,8 +639,10 @@ namespace Frame.VrAibo
                     distMovedTillLastTurn = 0;
                     if (movePairs[0].left)
                     {
-                        _vrAibo.Turn(90);
-                        _vrAibo.Walk(AiboSpeed);
+                       
+                        mc.RequestRotation(90);
+                        mc.RequestMovement(AiboSpeed);
+
                         distMovedTillLastTurn += AiboSpeed;
 
                         mp.left = false;
@@ -652,7 +653,10 @@ namespace Frame.VrAibo
                     else if (movePairs[0].froont)
                     {
 
-                        _vrAibo.Walk(AiboSpeed);
+                      
+                        mc.RequestMovement(AiboSpeed);
+
+                     
                         distMovedTillLastTurn += AiboSpeed;
 
                         mp.froont = false;
@@ -661,8 +665,10 @@ namespace Frame.VrAibo
                     }
                     else
                     {
-                        _vrAibo.Turn(-90);
-                        _vrAibo.Walk(AiboSpeed);
+
+                        mc.RequestRotation(-90);
+                        mc.RequestMovement(AiboSpeed);
+                      
                         distMovedTillLastTurn += AiboSpeed;
 
                         mp.rigth = false;
@@ -675,8 +681,8 @@ namespace Frame.VrAibo
                 else
                 {
                     //all paths of the intersection were visited, turn around and move back
-                    _vrAibo.Turn(180);
-                    _vrAibo.Walk(AiboSpeed);
+                    mc.RequestRotation(180);
+                    mc.RequestMovement(AiboSpeed);
                 }
             }
             else
@@ -709,21 +715,14 @@ namespace Frame.VrAibo
                         int sDiff = Math.Abs(lastFrontStart- lineStartFront);
                         int eDiff = Math.Abs(lastFrontEnd- lineEndFront);
 
-
-                       /* if (sDiff > 30)
-                        {
-                            Logger.Instance.LogInfo("hard turn triggred");
-                            phi = phi * 4;
-                        }*/
-
                         if (phi != 0.0f)
                         {
-                            //Logger.Instance.LogInfo("Turning by " + phi + " degree");
-                            _vrAibo.Turn(phi / 2);
+                            mc.RequestRotation(phi / 2);
                             mp.turn = phi / 2;
                         }
 
-                        _vrAibo.Walk(AiboSpeed);
+                       
+                        mc.RequestMovement(AiboSpeed);
                         movePairs.Add(mp);
                         distMovedTillLastTurn += AiboSpeed;
                     }
@@ -746,8 +745,8 @@ namespace Frame.VrAibo
                             mp.left = true;
                             mp.rigth = true;
                             //if both way, go left first
-                            _vrAibo.Turn(90);
-                            _vrAibo.Walk(AiboSpeed);
+                            mc.RequestRotation(90);
+                            mc.RequestMovement(AiboSpeed);
                             distMovedTillLastTurn += AiboSpeed;
 
                             mp.left = false;
@@ -757,8 +756,8 @@ namespace Frame.VrAibo
 
                         }else if (LeftOK)
                         {
-                            _vrAibo.Turn(90);
-                            _vrAibo.Walk(AiboSpeed);
+                            mc.RequestRotation(90);
+                            mc.RequestMovement(AiboSpeed);
                             distMovedTillLastTurn += AiboSpeed;
 
                             mp.left = false;
@@ -769,9 +768,9 @@ namespace Frame.VrAibo
                         else
                         {
 
-                           
-                            _vrAibo.Turn(-90);
-                            _vrAibo.Walk(AiboSpeed);
+
+                            mc.RequestRotation(-90);
+                            mc.RequestMovement(AiboSpeed);
                             distMovedTillLastTurn += AiboSpeed;
 
                             mp.rigth = false;
@@ -789,10 +788,7 @@ namespace Frame.VrAibo
                     
 
                     //front not ok
-                    Logger.Instance.LogInfo("Front not ok");
-                    Logger.Instance.LogInfo("line start "+ lineStartFront);
-                    Logger.Instance.LogInfo("line end " + lineEndFront);
-
+                
 
                     //chech whether this realy is a dead end
                     //there is the possibility that a T shaped intersection or a simple turn is view as a dead end,
@@ -807,16 +803,17 @@ namespace Frame.VrAibo
                     if (leftScanResult && !rigthScanResult)
                     {
                         //simpe left turn
-                        _vrAibo.Walk(AiboSpeed);
-                        _vrAibo.Turn(90);
+                      
+                        mc.RequestMovement(AiboSpeed);
+                        mc.RequestRotation(90);
                         distMovedTillLastTurn = 0;
                         return;
                     }
                     else if (!leftScanResult && rigthScanResult)
                     {
                         //simple rigth turn
-                        _vrAibo.Walk(AiboSpeed);
-                        _vrAibo.Turn(-90);
+                        mc.RequestMovement(AiboSpeed);
+                        mc.RequestRotation(-90);
                         distMovedTillLastTurn = 0;
                         return;
                     }
@@ -825,9 +822,7 @@ namespace Frame.VrAibo
                         //T intersection
                     }
 
-                  
-
-                    _vrAibo.Turn(180);
+                    mc.RequestRotation(180);
                     moveBack = true;
                     return;                  
                 }
@@ -847,27 +842,20 @@ namespace Frame.VrAibo
             //apply the turn in reverse and move
 
             if (movePairs.Count - 1 == 0)
-            {            
-
-                _vrAibo.Walk(mp.movement);
-                _vrAibo.Turn(mp.turn);
+            {
+                mc.RequestMovement(mp.movement);
+                mc.RequestRotation(mp.turn);
             }
             else
             {
-                _vrAibo.Walk(mp.movement);
-                _vrAibo.Turn(mp.turn * -1);
+                mc.RequestMovement(mp.movement);
+                mc.RequestRotation(mp.turn * -1);
             }
-
-         
-
-           
 
             if (movePairs.Count > 1)
             {
                 movePairs.RemoveAt(movePairs.Count - 1);
-            }
-
-          
+            }         
         
         }
 
