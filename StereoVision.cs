@@ -28,7 +28,7 @@ namespace Frame.VrAibo
             isIntersection = false;
             movement = 0;
             turn = 0;
-        }
+        }     
 
         public float movement;
         public float turn;
@@ -37,6 +37,23 @@ namespace Frame.VrAibo
         public bool froont;
         public bool isIntersection;
     }
+
+    public struct Segment
+    {   
+        public int start;
+        public int end;
+
+        public bool isObject;
+
+        public Segment(int start, int end, bool isObject)
+        {
+            this.start = start;
+            this.end = end;
+            this.isObject = isObject;
+        }
+    }
+
+    enum hsvEvalReturn {No_Object,Object_with_border,Object_no_border };
 
     internal class StereoVision : IPluginClient
     {
@@ -47,6 +64,10 @@ namespace Frame.VrAibo
         private GLab.VirtualAibo.VrAibo _vrAibo;
         private GLab.StereoVision.StereoVision _stereoVision;
         private double lastDepth = 0;
+
+
+        Hsv colorfDetectedObject = new Hsv();
+        bool objectDetected = false;
 
         MovementConsenter.MovementConsenter mc;
 
@@ -78,15 +99,19 @@ namespace Frame.VrAibo
         private int lineStartFront = -1;
         private int lineEndFront = -1;
 
-
+        private FrmImage processedDB;
 
         int picsTaken = 0;
 
         private bool justReturnedFromTrackBack = false;
 
         private FrmImage stuff;
+        private FrmImage distanceDB;
 
         int pathMinThreshold = 60;
+
+
+        Image<Gray, short> disp;
 
         //--------------
 
@@ -121,7 +146,7 @@ namespace Frame.VrAibo
             //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.4f, 35) };
 
 
-            _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.047f, -12.66f) };
+            //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.047f, -12.66f) };
 
             
             //{X:0,04798115 Y:-12,66051}
@@ -130,6 +155,12 @@ namespace Frame.VrAibo
             
           //  _vrAibo.Position.X =  0.4;
            //  _vrAibo.Position.Y =  34.7;
+
+           // _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.047f, 50.34f) };
+
+            _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.047f, 30.73f) };
+
+           //{X:0,047 Y:50,34013}
 
             mc = new MovementConsenter.MovementConsenter(_vrAibo);
 
@@ -201,6 +232,10 @@ namespace Frame.VrAibo
                                          GLab.VirtualAibo.VrAibo.SurfaceWidth,
                                          GLab.VirtualAibo.VrAibo.SurfaceHeight);
 
+            processedDB = new FrmImage("ProcessDB",
+                                       GLab.VirtualAibo.VrAibo.SurfaceWidth,
+                                       GLab.VirtualAibo.VrAibo.SurfaceHeight);
+
 
             Logger.Instance.LogInfo("Use Aibo remote to walk around.");
             Logger.Instance.LogInfo("Walk onto the red line and press the BLUE button to start line tracking.");
@@ -213,7 +248,7 @@ namespace Frame.VrAibo
                                             );
 
 
-
+             disp = new Image<Gray, short>(256,256);
 
             //----------------
 
@@ -229,6 +264,8 @@ namespace Frame.VrAibo
 
             //-----
 
+            distanceDB = new FrmImage("Distance Output", GLab.VirtualAibo.VrAibo.SurfaceWidth,
+                                           GLab.VirtualAibo.VrAibo.SurfaceHeight, DisplayMode.Original);
 
 
             // Start the looped execution of Run()
@@ -692,10 +729,10 @@ namespace Frame.VrAibo
                 //check of the front is clear
                 if (frontOK)
                 {
-                    Logger.Instance.LogInfo("Front ok");
-                    Logger.Instance.LogInfo("Status R: "+rigthOK);
-                    Logger.Instance.LogInfo("Min Status: " + (distMovedTillLastTurn < minMoveDistanceTillNextTurn));
-                    Logger.Instance.LogInfo("Moved: " + distMovedTillLastTurn + " must move: " + minMoveDistanceTillNextTurn);
+                   // Logger.Instance.LogInfo("Front ok");
+                    //Logger.Instance.LogInfo("Status R: "+rigthOK);
+                    //Logger.Instance.LogInfo("Min Status: " + (distMovedTillLastTurn < minMoveDistanceTillNextTurn));
+                    //Logger.Instance.LogInfo("Moved: " + distMovedTillLastTurn + " must move: " + minMoveDistanceTillNextTurn);
                     
 
 
@@ -703,7 +740,7 @@ namespace Frame.VrAibo
                     if ((!LeftOK && !rigthOK) || distMovedTillLastTurn < minMoveDistanceTillNextTurn)
                     {
 
-                        Logger.Instance.LogInfo("move forwards");
+                      
                         //just move front
                         //only way to move it forward
                         int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (lineEndFront - ((lineEndFront - lineStartFront) / 2));
@@ -717,12 +754,15 @@ namespace Frame.VrAibo
 
                         if (phi != 0.0f)
                         {
-                            mc.RequestRotation(phi / 2);
+                            mc.turnFromPath = phi / 2;
+                            //mc.RequestRotation(phi / 2);
                             mp.turn = phi / 2;
                         }
 
-                       
-                        mc.RequestMovement(AiboSpeed);
+
+                        mc.pathRequstedMovement = true;
+                        mc.movementFromPath = AiboSpeed;
+                        //mc.RequestMovement(AiboSpeed);
                         movePairs.Add(mp);
                         distMovedTillLastTurn += AiboSpeed;
                     }
@@ -730,7 +770,7 @@ namespace Frame.VrAibo
                     {
                         //a possible intersection has beed detected
 
-                        Logger.Instance.LogInfo("new intersection found");
+                       // Logger.Instance.LogInfo("new intersection found");
                         distMovedTillLastTurn = 0;
                         movePairs.Clear();
 
@@ -785,7 +825,7 @@ namespace Frame.VrAibo
                 }
                 else
                 {
-                    
+                    Logger.Instance.LogInfo("FRONT NOT OK");
 
                     //front not ok
                 
@@ -859,130 +899,547 @@ namespace Frame.VrAibo
         
         }
 
-        private bool TrackLine(out float turn)
+        private double getDistance(Image<Gray, byte> disp, Image<Gray, byte> center, FrmImage dbImage)
         {
-            // Get images from vraibo
-            Image<Gray, byte> leftEye = new Image<Gray, byte>((Bitmap)_vrAibo.GetBitmapLeftEye());
-            Image<Gray, byte> rightEye = new Image<Gray, byte>((Bitmap)_vrAibo.GetBitmapRightEye());
+            Image<Gray, byte> distImg = center.Copy();
 
+            int heigth = 256 / 2;
+            byte distThres = 255 - 30;
 
-            // Let the stereo vision class compute a disparity map
-            _stereoVision.ComputeDisparityMap(ref leftEye, ref rightEye);
+            double avrgDist = 0;
+            int valuesAdded = 0;
 
-           /* StereoSGBM sgbm = new StereoSGBM(0, 16, 0, 0, 0, -1, 0, 7, 50, 1, StereoSGBM.Mode.SGBM);
+            int sideSpacing = 80;
 
-            Image<Gray, short> disp = new Image<Gray, short>(leftEye.Size);
-
-              sgbm.FindStereoCorrespondence(leftEye, rightEye, disp);
-
-              _frmImage.SetImage(disp);*/
-
-            // Display the resulting disparity map. Darker values mean less disparity which means the object is farer away
-            _frmImage.SetImage(_stereoVision.DisparityMapDisplayable);
-
-            // This is a calculation to get a point just below the image center. This point is where depth perception is shown
-            int probe_x = _stereoVision.RefImage.Width / 2;
-            int probe_y = (int)(_stereoVision.RefImage.Height * 0.6);
-
-            // Get and display the reference image. Every pixel here corresponds to a pixel in the disparity map
-            // If you want to detect objects for which you want to have the distance, use *this* image only.
-            // Also, we draw a white cross on the point in the image from where the depth is taken
-            Image<Gray, byte> tmpRefImg = _stereoVision.RefImage;
-            tmpRefImg.Draw(new Cross2DF(new PointF(probe_x, probe_y), 8, 8), new Gray(255), 1);
-            _referenceImage.SetImage(tmpRefImg);
-
-            // This prints the current depth on the point to the log facility, if there is enough change
-            // to the depth value
-            double depth = _stereoVision.GetDepth(probe_x, probe_y);
-            if (Math.Abs(depth - lastDepth) > 0.1)
-                //Logger.Instance.LogInfo(depth.ToString(CultureInfo.InvariantCulture));
-                //Logger.Instance.LogInfo("distance: " + depth);
-            lastDepth = depth;
-
-            //---------------------------
-
-
-            // Get bitmap from center eye camera...
-            Bitmap centerEye = (Bitmap)_vrAibo.GetBitmapCenterEye();
-            // ...and create a new RasterImage...
-            Image<Rgb, byte> center = new Image<Rgb, byte>(centerEye);
-
-            // Get red-channel
-            Image<Rgb, byte> channelRed = new Image<Rgb, byte>(center.Width, center.Height);
-            // set "channel of interest" (coi) to red
-            CvInvoke.cvSetImageCOI(center.Ptr, 1);
-            CvInvoke.cvSetImageCOI(channelRed.Ptr, 1);
-            CvInvoke.cvCopy(center.Ptr, channelRed.Ptr, IntPtr.Zero);
-            // reset coi
-            CvInvoke.cvSetImageCOI(center.Ptr, 0);
-            CvInvoke.cvSetImageCOI(channelRed.Ptr, 0);
-
-          
-            if (moveBack)
+            for (int i = sideSpacing; i < distImg.Width - sideSpacing; i++)
             {
+                //get the distance
+                //byte distance = disp.Data[heigth, i, 0];
 
-                if (movePairs.Count == 0)
+                double distance = _stereoVision.GetDepth(i, heigth);
+
+                avrgDist += distance;
+                valuesAdded++;
+
+
+                //Logger.Instance.LogInfo("d: "+distance);
+                if (distance <= distThres)
                 {
-
-                }else
-
-                if (movePairs.Count == 1)
-                {
-                    moveBack = false;
-                    moveBackViaRecordedPath();
-                    justReturnedFromTrackBack = true;
-
-                    if (!movePairs[0].left && !movePairs[0].rigth && !movePairs[0].froont)
-                    {
-
-                        
-                        movePairs.RemoveAt(0);
-                    }
-
+                    distImg[heigth, i] = new Gray(255);
                 }
                 else
                 {
-                    moveBackViaRecordedPath();
+                    distImg[heigth, i] = new Gray(0);
                 }
-                
-                
+
+
+            }
+
+            dbImage.SetImage(distImg);
+            return avrgDist / valuesAdded;
+        }
+
+
+        private double getDistance(Image<Gray, short> disp, Image<Rgb, byte> center,FrmImage dbImage)
+        {
+            Image<Rgb, byte> distImg = center.Copy();
+
+            int heigth = 256 / 2;
+            short distThres = 255 - 30;
+
+            double avrgDist = 0;
+            int valuesAdded = 0;
+
+            int sideSpacing = 80;
+
+            for (int i = sideSpacing; i < distImg.Width - sideSpacing; i++)
+            {
+                //get the distance
+                //short distance = disp.Data[heigth, i, 0];
+
+                double distance = _stereoVision.GetDepth(i, heigth);
+
+                avrgDist += distance;
+                valuesAdded++;
+
+
+                //Logger.Instance.LogInfo("d: "+distance);
+                if (distance <= distThres)
+                {
+                    distImg[heigth, i] = new Rgb(255, 0, 0);
+                }
+                else
+                {
+                    distImg[heigth, i] = new Rgb(0, 255, 0);
+                }
+
+
+            }
+
+            dbImage.SetImage(distImg);
+            return avrgDist / valuesAdded;
+        }
+
+
+        private int getSegments(Image<Gray, short> disp, Image<Rgb, byte> center, FrmImage dbImage, out List<Segment> objectSegments, short distThres, int heigth)
+        {
+            Image<Rgb, byte> distImg = center.Copy();        
+           
+
+            int avrgDist = 0;
+            int valuesAdded = 0;
+
+            objectSegments = new List<Segment>();
+            int newSegemntStart = 0;
+
+            bool onObject = distThres < disp.Data[heigth, 0, 0];
+
+         
+
+            for (int i = 0; i < distImg.Width; i++)
+            {
+                //get the distance
+                short distance = disp.Data[heigth, i, 0];
+
+
+             
+
+                // double distance = _stereoVision.GetDepth(i, heigth);
+
+                avrgDist += distance;
+                valuesAdded++;
+
+
+                bool isCurrentPixelObject = distThres < distance;
+
+
+                //check if the current pixel still the same as the segment we are currently tracking
+                if (isCurrentPixelObject == onObject)
+                {
+                    //in this case do nothing
+                }
+                else
+                {
+                    //change detected
+                    objectSegments.Add(new Segment(newSegemntStart, i-1, onObject));
+                    newSegemntStart = i;
+                    onObject = isCurrentPixelObject;
+
+                }
+
+
+                //print to the db image
+                if (isCurrentPixelObject)
+                {
+                    //distImg[heigth, i] = new Rgb(255, 0, 0);
+                }
+                else
+                {
+                    //distImg[heigth, i] = new Rgb(0, 255, 0);
+                }
+
+
+                //Logger.Instance.LogInfo("d: "+distance);
+             /*   if (distance <= distThres)
+                {
+
+                    if (!trackingFreeSegment)
+                    {
+                        //we found a new segment
+                        newSegemntStart = i;
+                        trackingFreeSegment = true;
+                    }
+
+                    distImg[heigth, i] = new Rgb(255, 0, 0);
+                }
+                else
+                {
+                    distImg[heigth, i] = new Rgb(0, 255, 0);
+                    if (trackingFreeSegment)
+                    {
+                        objectSegments.Add(new Segment(newSegemntStart, i));
+                        trackingFreeSegment = false;
+                    }
+
+                }*/
+
+
+            }
+
+            //dont forget to add the last segment
+            objectSegments.Add(new Segment(newSegemntStart, distImg.Width, onObject));
+
+            dbImage.SetImage(distImg);
+            return avrgDist / valuesAdded;
+        }
+
+
+        public void filterViaHSV(Image<Hsv, byte> img, Hsv colorToFilter,out Image<Gray, byte> mask)
+        {
+          
+            //CvInvoke.cvCvtColor(img, hsvImage, Emgu.CV.CvEnum.COLOR_CONVERSION.RGB2HSV);
+
+            //get a probe of the color we are intersted in
+
+            Hsv hsv_min = new Hsv(colorToFilter.Hue, 0, 0);
+            Hsv hsv_max = new Hsv(colorToFilter.Hue, 255, 255);
+
+
+            mask = img.InRange(hsv_min, hsv_max);
+            
+            processedDB.SetImage(mask);
+
+
+        }
+
+
+        private hsvEvalReturn evalMask(Image<Gray, byte> mask,int scanHeigth,out int objectEnd,out bool objectToLeft)
+        {
+            //check if we start on free space or an object
+            bool startOnObject = mask[scanHeigth, 0].Intensity>0;
+
+            for (int i = 0; i < mask.Width; i++)
+            {
+                bool isOnObject = mask[scanHeigth, i].Intensity > 0;
+
+                //check if a change accured
+                if (startOnObject != isOnObject)
+                {
+                    //found a change
+                    objectEnd = i;
+
+                    //determine which side of the img the object was on
+                    //since we started scanning from the left, this means starting in th object means the object is to the left
+                    if (startOnObject) 
+                    {
+                        objectToLeft = true;
+                    }
+                    else
+                    {
+                        objectToLeft = false;
+                    }
+
+                    return hsvEvalReturn.Object_with_border;
+                }
+            }
+
+            //if we got here this means we either saw nothing but an object or no object at all
+            if (startOnObject)
+            {
+                objectToLeft = false;
+                objectEnd = -1;
+                return hsvEvalReturn.Object_no_border;
             }
             else
             {
-                if (picsTaken == 0)
-                {
-                    front = center.Copy();
-                    //turn 90 left
-                    _vrAibo.HeadYaw = 90;
-                    picsTaken++;
-                }
-                else if (picsTaken == 1)
-                {
-                    //turn 90 left
-                    _vrAibo.HeadYaw = -90;
-                    left = center.Copy();
-                    picsTaken++;
-                }
-                else if (picsTaken == 2)
-                {
-                    //turn 90 left
-                    _vrAibo.HeadYaw = 0;
-                    rigth = center.Copy();
-                    picsTaken = 0;
-                    //Logger.Instance.LogInfo("All Pics taken");
-                    moveBasedOnImage();
-
-                    Logger.Instance.LogInfo("At pos "+_vrAibo.Position);
-                    frontWindow.SetImage(front);
-                    leftWindow.SetImage(left);
-                    rigthWindow.SetImage(rigth);
-                }       
-            
+                objectToLeft = false;
+                objectEnd = -1;
+                return hsvEvalReturn.No_Object;
             }
+        }
 
 
-            _frmEyeCenter.SetImage(channelRed);
+        private void doStereoVisionStuff(Image<Rgb,byte> center,Image<Gray, short> disp)
+        {
+          
+         
 
+          //Logger.Instance.LogInfo("At pos " + _vrAibo.Position);
+
+          List<Segment> objectSegments = new List<Segment>();
+
+          short distThres = 255 - 40;
+
+          int heigth = 256 / 2;
+
+          int avrgDist = getSegments(disp, center, distanceDB, out objectSegments, distThres, heigth);
+
+
+
+          Image<Hsv, byte> hsvImage = new Image<Hsv, byte>(center.Size);
+          CvInvoke.cvCvtColor(center, hsvImage, Emgu.CV.CvEnum.COLOR_CONVERSION.RGB2HSV);
+
+          if (avrgDist > 190)
+          {
+              mc.astimatedDistanceToObject = 5;
+           
+              objectDetected = true;
+
+              //get the first segment that is an object, make sure there is one
+              if (objectSegments.Count > 1)
+              {
+                //get the center of that segment
+                  int c = (objectSegments[0].end - objectSegments[0].start) / 2 + objectSegments[0].start;
+                  //get the probe
+                  colorfDetectedObject = hsvImage[heigth, c];
+
+              }
+
+          }
+
+          //check if on object was detected at all
+          if (objectDetected)
+          {
+              Image<Gray, byte> mask = new Image<Gray, byte>(center.Size);
+            
+              colorfDetectedObject = hsvImage[256 / 2, 256 / 2];
+
+              filterViaHSV(hsvImage, colorfDetectedObject, out mask);
+
+              int objectStart = 0;
+              bool objectIsToTheLeft = true;
+
+              hsvEvalReturn r = evalMask(mask, 256 / 2, out objectStart, out objectIsToTheLeft);
+
+              if (r == hsvEvalReturn.No_Object)
+              {
+                  //something is wrong if we get here...
+              }
+              else if (r == hsvEvalReturn.Object_no_border)
+              {
+                  //the entire sceen is filled with the object
+                  mc.objectDetectionRequstedMovement = true;
+                  mc.turnFromObjectDetection = 45;
+              }
+              else
+              {
+                  //object with border
+                  mc.objectDetectionRequstedMovement = true;
+
+                  int objectEnd;
+                  if (objectIsToTheLeft)
+                  {
+                      objectEnd = center.Width;
+                  }
+                  else
+                  {
+                      objectEnd = 0;
+                  }
+
+                  int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (objectEnd - ((objectEnd - objectStart) / 2));
+                  float phi = Alpha * diffX;
+
+                  mc.turnFromObjectDetection = phi;
+
+
+              }
+
+
+              stuff.SetImage(disp);
+          }
+
+          //Image<Gray, short> binary = disp.Copy();
+
+          //CvInvoke.cvThreshold(disp, binary, 180, 255, Emgu.CV.CvEnum.THRESH.CV_THRESH_TOZERO_INV & Emgu.CV.CvEnum.THRESH.CV_THRESH_BINARY);
+
+          //processedDB.SetImage(binary);
+
+            Logger.Instance.LogInfo("Distance to target "+avrgDist);
+
+          
+          //int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (objectSegments[0].end - ((objectSegments[0].end - 0) / 2));
+          //float phi = Alpha * diffX;
+      }
+
+      private bool TrackLine(out float turn)
+      {
+          // Get images from vraibo
+          Image<Gray, byte> leftEye = new Image<Gray, byte>((Bitmap)_vrAibo.GetBitmapLeftEye());
+          Image<Gray, byte> rightEye = new Image<Gray, byte>((Bitmap)_vrAibo.GetBitmapRightEye());
+
+
+          // Let the stereo vision class compute a disparity map
+          _stereoVision.ComputeDisparityMap(ref leftEye, ref rightEye);
+
+        
+
+          // Display the resulting disparity map. Darker values mean less disparity which means the object is farer away
+          _frmImage.SetImage(_stereoVision.DisparityMapDisplayable);
+
+          // This is a calculation to get a point just below the image center. This point is where depth perception is shown
+          int probe_x = _stereoVision.RefImage.Width / 2;
+          int probe_y = (int)(_stereoVision.RefImage.Height * 0.6);
+
+          // Get and display the reference image. Every pixel here corresponds to a pixel in the disparity map
+          // If you want to detect objects for which you want to have the distance, use *this* image only.
+          // Also, we draw a white cross on the point in the image from where the depth is taken
+          Image<Gray, byte> tmpRefImg = _stereoVision.RefImage;
+          tmpRefImg.Draw(new Cross2DF(new PointF(probe_x, probe_y), 8, 8), new Gray(255), 1);
+          _referenceImage.SetImage(tmpRefImg);
+
+          // This prints the current depth on the point to the log facility, if there is enough change
+          // to the depth value
+          double depth = _stereoVision.GetDepth(probe_x, probe_y);
+          if (Math.Abs(depth - lastDepth) > 0.1)
+              //Logger.Instance.LogInfo(depth.ToString(CultureInfo.InvariantCulture));
+              //Logger.Instance.LogInfo("distance: " + depth);
+          lastDepth = depth;
+
+          //---------------------------
+
+
+          // Get bitmap from center eye camera...
+          Bitmap centerEye = (Bitmap)_vrAibo.GetBitmapCenterEye();
+          // ...and create a new RasterImage...
+          Image<Rgb, byte> center = new Image<Rgb, byte>(centerEye);
+
+          // Get red-channel
+          Image<Rgb, byte> channelRed = new Image<Rgb, byte>(center.Width, center.Height);
+          // set "channel of interest" (coi) to red
+          CvInvoke.cvSetImageCOI(center.Ptr, 1);
+          CvInvoke.cvSetImageCOI(channelRed.Ptr, 1);
+          CvInvoke.cvCopy(center.Ptr, channelRed.Ptr, IntPtr.Zero);
+          // reset coi
+          CvInvoke.cvSetImageCOI(center.Ptr, 0);
+          CvInvoke.cvSetImageCOI(channelRed.Ptr, 0);
+
+
+      
+
+          if (moveBack)
+          {
+              
+
+              if (movePairs.Count == 0)
+              {
+
+              }else
+
+              if (movePairs.Count == 1)
+              {
+                  moveBack = false;
+                  moveBackViaRecordedPath();
+                  justReturnedFromTrackBack = true;
+
+                  if (!movePairs[0].left && !movePairs[0].rigth && !movePairs[0].froont)
+                  {
+
+                        
+                      movePairs.RemoveAt(0);
+                  }
+
+              }
+              else
+              {
+                  moveBackViaRecordedPath();
+              }
+                
+                
+          }
+          else
+          {
+              if (picsTaken == 0)
+              {
+
+                  StereoSGBM sgbm = new StereoSGBM(0, 16, 0, 0, 0, -1, 0, 7, 50, 1, StereoSGBM.Mode.SGBM);
+
+                  //disp = new Image<Gray, short>(leftEye.Size);
+
+                  sgbm.FindStereoCorrespondence(leftEye, rightEye, disp);
+
+                  front = center.Copy();
+                  //turn 90 left
+                  _vrAibo.HeadYaw = 90;
+                  picsTaken++;
+
+                  stuff.SetImage(disp);
+
+                  //_frmImage.SetImage(disp);
+
+              
+
+
+              }
+              else if (picsTaken == 1)
+              {
+                  //turn 90 left
+                  _vrAibo.HeadYaw = -90;
+                  left = center.Copy();
+                  picsTaken++;
+              }
+              else if (picsTaken == 2)
+              {
+                  //turn 90 left
+                  _vrAibo.HeadYaw = 0;
+                  rigth = center.Copy();
+                  picsTaken = 0;
+                  //Logger.Instance.LogInfo("All Pics taken");
+                  moveBasedOnImage();
+                  doStereoVisionStuff(front,disp);
+
+                  Logger.Instance.LogInfo("At pos "+_vrAibo.Position);
+                  frontWindow.SetImage(front);
+                  leftWindow.SetImage(left);
+                  rigthWindow.SetImage(rigth);
+
+
+                  Logger.Instance.LogInfo("distance to object "+mc.astimatedDistanceToObject);
+                  mc.execute();
+
+              }       
+            
+          }
+
+
+           
+            
+          _frmEyeCenter.SetImage(channelRed);
+
+          //Logger.Instance.LogInfo("At pos " + _vrAibo.Position);
+
+
+          //int avrgDist = getDistance(disp, center, distanceDB);
+
+         /* Image<Gray, byte> mask = new Image<Gray, byte>(center.Size);
+          Image<Hsv, byte> hsvImage = new Image<Hsv, byte>(center.Size);
+          CvInvoke.cvCvtColor(center, hsvImage, Emgu.CV.CvEnum.COLOR_CONVERSION.RGB2HSV);
+          Hsv colorToFilter = hsvImage[256 / 2, 256 / 2];
+
+          filterViaHSV(hsvImage, colorToFilter,out mask);
+
+          int objectStart =0;
+          bool objectIsToTheLeft = true;
+
+          hsvEvalReturn r = evalMask(mask, 256 / 2, out objectStart, out objectIsToTheLeft);
+
+
+          Logger.Instance.LogInfo("Eval says");
+          Logger.Instance.LogInfo("R value " + r);
+          Logger.Instance.LogInfo("Object to the left " + objectIsToTheLeft);
+
+          //Logger.Instance.LogInfo("At pos " + _vrAibo.Position);
+
+          List<Segment> objectSegments = new List<Segment>();
+
+          int avrgDist = getSegments(disp, center, distanceDB, out objectSegments);
+
+          Image<Gray, short> binary = disp.Copy();
+
+          CvInvoke.cvThreshold(disp, binary, 180, 255, Emgu.CV.CvEnum.THRESH.CV_THRESH_TOZERO_INV & Emgu.CV.CvEnum.THRESH.CV_THRESH_BINARY);*()
+
+          //processedDB.SetImage(binary);
+
+          
+          //int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (objectSegments[0].end - ((objectSegments[0].end - 0) / 2));
+          //float phi = Alpha * diffX;
+
+
+
+              /*   if (phi != 0.0f)
+                 {
+                     _vrAibo.Turn(phi);
+                 }*/
+
+
+
+
+                //double avrgDist = getDistance(tmpRefImg, tmpRefImg, distanceDB);
+
+             
+
+
+
+           
 
             //------------------------
 
