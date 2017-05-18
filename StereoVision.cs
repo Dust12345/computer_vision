@@ -65,6 +65,7 @@ namespace Frame.VrAibo
         private GLab.StereoVision.StereoVision _stereoVision;
         private double lastDepth = 0;
 
+        private double currentRotation = 0;
 
         Hsv colorfDetectedObject = new Hsv();
         bool objectDetected = false;
@@ -72,6 +73,8 @@ namespace Frame.VrAibo
         MovementConsenter.MovementConsenter mc;
 
         float distMovedTillLastTurn = 0;
+
+        Vector2 myPos;
 
         private bool moveBack = false;
 
@@ -126,6 +129,8 @@ namespace Frame.VrAibo
         public override void Setup()
         {
 
+            myPos = new Vector2(0, 0);
+
             //sm = new StateMachine();
 
             movePairs = new List<MovePair>();
@@ -144,7 +149,7 @@ namespace Frame.VrAibo
 
             // Creates a new Virtual Aibo
             //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.4f, 35) };
-
+            _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.4f, 21.59995f) };
 
             //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.047f, -12.66f) };
 
@@ -158,7 +163,7 @@ namespace Frame.VrAibo
 
            // _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.047f, 50.34f) };
 
-            _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.047f, 30.73f) };
+           // _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.047f, 30.73f) };
 
            //{X:0,047 Y:50,34013}
 
@@ -1073,6 +1078,212 @@ namespace Frame.VrAibo
             return avrgDist / valuesAdded;
         }
 
+        private void getMask(Image<Rgb, byte> img, Hsv colorToFilter, out Image<Gray, byte> mask)
+        {
+            Image<Hsv, byte> hsvFront = new Image<Hsv, byte>(img.Size);
+
+            CvInvoke.cvCvtColor(img, hsvFront, Emgu.CV.CvEnum.COLOR_CONVERSION.RGB2HSV);
+
+            mask = hsvFront.InRange(new Hsv(colorToFilter.Hue - 5, 0, 0), new Hsv(colorToFilter.Hue + 5, 255, 255));
+
+            StructuringElementEx se = new StructuringElementEx(10, 10, 5, 5, Emgu.CV.CvEnum.CV_ELEMENT_SHAPE.CV_SHAPE_RECT);
+
+            CvInvoke.cvErode(mask, mask, se, 2);
+            CvInvoke.cvDilate(mask, mask, se, 2);
+
+        }
+
+        private const double DegToRad = Math.PI / 180;
+
+       
+
+        private Vector2 calcMovementVector(double angle,Vector2 vector)
+        {
+            double rad = DegToRad * angle;
+
+            Vector2 rotatedVector = new Vector2(0, 0);
+            double x = vector.X * Math.Cos(rad) - vector.Y * Math.Sin(rad);
+            double y = vector.X * Math.Sin(rad) + vector.Y * Math.Cos(rad);
+            rotatedVector.X = (float)x;
+            rotatedVector.Y = (float)y;
+            return rotatedVector;
+        }
+
+        private Vector2 getVectorTotarget(Vector2 pos, Vector2 target)
+        {
+            Vector2 vct = new Vector2(target.X-pos.X,target.Y-pos.Y);
+            return vct;        
+        }
+
+        double calcAngleBeteenVectors(Vector2 vec1, Vector2 vec2){
+		//calc dot product
+		//float dot = vec1.x * vec2.y + vec2.x* vec1.y;
+		//float absDot = (vec1.x * vec2.y) + std::abs(vec2.x* vec1.y);
+
+		//a = atan2d(x1*y2-y1*x2,x1*x2+y1*y2); https://de.mathworks.com/matlabcentral/answers/180131-how-can-i-find-the-angle-between-two-vectors-including-directional-information?requestedDomain=www.mathworks.com
+		double rad = Math.Atan2(vec1.X*vec2.Y - vec1.Y*vec2.X, vec1.X*vec2.X + vec1.Y*vec2.Y);
+        double angle = rad* (180 / 3.14);
+        return angle;
+
+	}
+
+        bool isClockwise(Vector2 v1, Vector2 v2)
+        {
+            if (v1.Y * v2.X > v1.X * v2.Y)
+            {
+                return false;
+            }
+            else
+            {
+                return true;
+            }
+        }
+
+
+        private void moveAroundObject()
+        {
+
+            Logger.Instance.LogInfo("-------------------------");
+
+            Vector2 target = new Vector2(0, 10);
+
+            Image<Gray, byte> maskFront = new Image<Gray, byte>(front.Size);
+            Image<Gray, byte> maskLeft = new Image<Gray, byte>(left.Size);
+            Image<Gray, byte> maskRight = new Image<Gray, byte>(rigth.Size);
+                        
+
+            getMask(front, new Hsv(19, 0, 0), out maskFront);
+            getMask(left, new Hsv(19, 0, 0), out maskLeft);
+            getMask(rigth, new Hsv(19, 0, 0), out maskRight);
+
+            //check the fron image
+            bool frontStatus = objectInside(maskFront, maskFront.Height / 2);
+            bool leftStatus = objectInside(maskLeft, maskLeft.Height / 2);
+            bool rigthStatus = objectInside(maskRight, maskRight.Height / 2);
+
+            Logger.Instance.LogInfo("my pos " + _vrAibo.Position);
+          //  Logger.Instance.LogInfo("target " + target);
+
+            //get the direction vector to the target
+            //Vector2 dirVct = getVectorTotarget(_vrAibo.Position, target);
+
+
+            Vector2 dirVct = getVectorTotarget(myPos, target);
+
+            Vector2 currentHeading = calcMovementVector(currentRotation,new Vector2(0,1));
+
+            double angle = Math.Abs(calcAngleBeteenVectors(currentHeading, dirVct));
+            double angle2 = calcAngleBeteenVectors(currentHeading, dirVct);
+            bool clockwise = isClockwise(currentHeading, dirVct);
+
+            //check the angle between the current and the direction we need to go
+            Logger.Instance.LogInfo("Current heading " + currentHeading);
+            Logger.Instance.LogInfo("Dir vector " + dirVct);
+            //Logger.Instance.LogInfo("Angle "+angle);
+            Logger.Instance.LogInfo("curent rot " + currentRotation);
+
+            Logger.Instance.LogInfo("Angle signed "+angle2);
+           
+
+
+            if (angle < 45)
+            {
+                Logger.Instance.LogInfo("Need to move front");
+                //we rougly need to move to the front
+                if (frontStatus)
+                {                  
+                    //object in the front img
+                    if (leftStatus && rigthStatus)
+                    {
+                        //bboth sides are blocked
+                    }
+                    else if (!rigthStatus)
+                    {
+                        Logger.Instance.LogInfo("Turn rigth");
+                        //left is free
+                        _vrAibo.Turn(-90);
+                        currentRotation -= 90;
+                        currentRotation = currentRotation % 360;
+                    
+                    }
+                    else
+                    {
+                        Logger.Instance.LogInfo("Turn L");
+                        //rigth is free
+                        _vrAibo.Turn(+90);
+                        currentRotation += 90;
+                        currentRotation = currentRotation % 360;
+                    }
+
+                }
+                else
+                {
+                    //no object there
+                    Vector2 mvVct = calcMovementVector(currentRotation, new Vector2(0, AiboSpeed));
+                    myPos.X += mvVct.X;
+                    myPos.Y += mvVct.Y;
+
+
+                    _vrAibo.Walk(AiboSpeed);
+                }
+            }
+            else if(angle >45 && angle <135)
+            {
+
+                Logger.Instance.LogInfo("need to move to a side");
+                //we need to check the side images
+                if (clockwise)
+                {
+                    Logger.Instance.LogInfo("need to turn left");
+                    //we need to move left
+                    if (leftStatus)
+                    {
+                        Vector2 mvVct = calcMovementVector(currentRotation, new Vector2(0, AiboSpeed));
+                        myPos.X += mvVct.X;
+                        myPos.Y += mvVct.Y;
+                        //object to the left
+                        _vrAibo.Walk(AiboSpeed);
+                    }
+                    else
+                    {
+                        //left ok
+                        _vrAibo.Turn(+90);
+                        currentRotation += 90;
+                        currentRotation = currentRotation % 360;
+                    }
+                }
+                else
+                {
+
+                    Logger.Instance.LogInfo("need to turn rigth");
+                    //we need to move rigth
+                    if (rigthStatus)
+                    {
+                        Logger.Instance.LogInfo("R is blocked");
+                        //object to the rigth
+                        _vrAibo.Walk(AiboSpeed);
+                        Vector2 mvVct = calcMovementVector(currentRotation, new Vector2(0, AiboSpeed));
+                        myPos.X += mvVct.X;
+                        myPos.Y += mvVct.Y;
+                    }
+                    else
+                    {
+                        Logger.Instance.LogInfo("R is free");
+                        //rigth ok
+                        _vrAibo.Turn(-90);
+                        currentRotation -= 90;
+                        currentRotation = currentRotation % 360;
+                    }
+                }
+            }           
+
+            frontWindow.SetImage(maskFront);
+            leftWindow.SetImage(maskLeft);
+            rigthWindow.SetImage(maskRight);
+
+            Logger.Instance.LogInfo("-------------------------");
+        
+        }
 
         public void filterViaHSV(Image<Hsv, byte> img, Hsv colorToFilter,out Image<Gray, byte> mask)
         {
@@ -1092,6 +1303,18 @@ namespace Frame.VrAibo
 
         }
 
+        private bool objectInside(Image<Gray, byte> mask,int scanHeigth)
+        {
+            for (int i = 0; i < mask.Width; i++)
+            {
+                bool isOnObject = mask[scanHeigth, i].Intensity > 0;
+                if (isOnObject)
+                {
+                    return true;
+                }
+            }
+            return false;
+         }
 
         private hsvEvalReturn evalMask(Image<Gray, byte> mask,int scanHeigth,out int objectEnd,out bool objectToLeft)
         {
@@ -1234,7 +1457,7 @@ namespace Frame.VrAibo
 
           //processedDB.SetImage(binary);
 
-            Logger.Instance.LogInfo("Distance to target "+avrgDist);
+            //Logger.Instance.LogInfo("Distance to target "+avrgDist);
 
           
           //int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (objectSegments[0].end - ((objectSegments[0].end - 0) / 2));
@@ -1364,17 +1587,30 @@ namespace Frame.VrAibo
                   rigth = center.Copy();
                   picsTaken = 0;
                   //Logger.Instance.LogInfo("All Pics taken");
-                  moveBasedOnImage();
-                  doStereoVisionStuff(front,disp);
+                  //moveBasedOnImage();
+                  //doStereoVisionStuff(front,disp);
 
-                  Logger.Instance.LogInfo("At pos "+_vrAibo.Position);
-                  frontWindow.SetImage(front);
-                  leftWindow.SetImage(left);
-                  rigthWindow.SetImage(rigth);
+                  moveAroundObject();
+
+                  //Vector2 currentHeading = calcMovementVector(90, new Vector2(0, -1));
+
+                  //Logger.Instance.LogInfo("Heading " + currentHeading);
+
+                  /*Logger.Instance.LogInfo("At pos "+_vrAibo.Position);
+
+                  double angle = calcAngleBeteenVectors(new Vector2(0,-1),new Vector2(3,-3));
+                  Logger.Instance.LogInfo("angle: " + angle);
+
+                  double angle2 = calcAngleBeteenVectors(new Vector2(0, -1), new Vector2(-3, 3));
+                  Logger.Instance.LogInfo("angle: " + angle2);*/
+                  
+                  //frontWindow.SetImage(front);
+                  //leftWindow.SetImage(left);
+                  //rigthWindow.SetImage(rigth);
 
 
-                  Logger.Instance.LogInfo("distance to object "+mc.astimatedDistanceToObject);
-                  mc.execute();
+                  //Logger.Instance.LogInfo("distance to object "+mc.astimatedDistanceToObject);
+                  //mc.execute();
 
               }       
             
