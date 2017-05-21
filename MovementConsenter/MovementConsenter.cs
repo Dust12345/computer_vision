@@ -16,13 +16,15 @@ namespace Frame.VrAibo.MovementConsenter
         //temporary
         public double astimatedDistanceToObject;
 
-        public bool pathRequstedMovement = false;
-        public float movementFromPath =0;
-        public float turnFromPath =0;
+        private bool pathRequstedMovement = false;
+        private float movementFromPath = 0;
+        private float turnFromPath = 0;
 
-        public bool objectDetectionRequstedMovement = false;
-        public float moveFromObjectDetection = 0;
-        public float turnFromObjectDetection = 0;
+        private bool objectDetectionRequstedMovement = false;
+        private float moveFromObjectDetection = 0;
+        private float turnFromObjectDetection = 0;
+
+        private double angleDiffThreshold = 15;
 
         
 
@@ -56,19 +58,36 @@ namespace Frame.VrAibo.MovementConsenter
 
            
         }
-        
+
+        public void pathDetectionReques(float movement, double rotation)
+        {
+          
+              pathRequstedMovement = true;
+              movementFromPath = movement;
+              turnFromPath = (float)rotation;
+        }
+
+        public void objectDetectionReques(float movement, double rotation)
+        {
+              objectDetectionRequstedMovement = true;
+              moveFromObjectDetection = movement;
+              turnFromObjectDetection = (float)rotation;
+        }
+
         public void RequestRotation(float amount)
         {
             _robot.Turn(amount);
         }
 
-        private void handleSimplePathMovement()
+        private void handleSimplePathMovement(out float executedMovement, out double executedRotation)
         {
             if (astimatedDistanceToObject == -1)
             {
                 //no objecz detected, just move
-                _robot.Walk(movementFromPath);
                 _robot.Turn(turnFromPath);
+                _robot.Walk(movementFromPath);              
+                executedMovement = movementFromPath;
+                executedRotation = turnFromPath;
                 return;
             }
             else
@@ -77,28 +96,57 @@ namespace Frame.VrAibo.MovementConsenter
                 if (astimatedDistanceToObject < movementFromPath)
                 {
                     //do nothing
+                    executedMovement = 0;
+                    executedRotation = 0;
                 }
                 else
                 {
                     astimatedDistanceToObject -= movementFromPath;
-                    _robot.Walk(movementFromPath);
                     _robot.Turn(turnFromPath);
+                    _robot.Walk(movementFromPath);
+                    executedMovement = movementFromPath;
+                    executedRotation = turnFromPath;
                     return;
                 }
             }
         }
 
-        private void handleObjectDetectionMovement()
+        private void handleObjectDetectionMovement(out float executedMovement, out double executedRotation)
         {
-            _robot.Walk(moveFromObjectDetection);
+            Logger.Instance.LogInfo("handle just object");
             _robot.Turn(turnFromObjectDetection);
+            _robot.Walk(moveFromObjectDetection);
+
+            executedMovement = moveFromObjectDetection;
+            executedRotation = turnFromObjectDetection;
         }
 
-        private void handleBothRequest()
+        private void handleBothRequest(out float executedMovement, out double executedRotation)
         {
             Logger.Instance.LogInfo("handle both");
 
          
+            //check if both movement request point in the same direction, if so we can just move as the path algo suggests
+
+            double angleDiff = Math.Abs(turnFromPath - turnFromObjectDetection);
+
+            if (angleDiff < angleDiffThreshold)
+            {
+                _robot.Turn(turnFromPath);
+                _robot.Walk(movementFromPath);
+                executedMovement = movementFromPath;
+                executedRotation = turnFromPath;
+                return;
+            }
+            else
+            {
+                _robot.Turn(turnFromObjectDetection);
+                _robot.Walk(moveFromObjectDetection);
+                executedMovement = moveFromObjectDetection;
+                executedRotation = turnFromObjectDetection;
+                return;
+            }
+
                 
             //obkect was detected
             if (astimatedDistanceToObject < movementFromPath)
@@ -106,33 +154,50 @@ namespace Frame.VrAibo.MovementConsenter
                 Logger.Instance.LogInfo("went in here");
                 //we are to close to an object
                 //move via the object detection
-                _robot.Walk(moveFromObjectDetection);
                 _robot.Turn(turnFromObjectDetection);
+                _robot.Walk(moveFromObjectDetection);
+                executedMovement = moveFromObjectDetection;
+                executedRotation = turnFromObjectDetection;
+              
             }
             else
             {
                 astimatedDistanceToObject -= movementFromPath;
-                _robot.Walk(movementFromPath);
+
                 _robot.Turn(turnFromPath);
+                _robot.Walk(movementFromPath);
+
+
+                executedMovement = movementFromPath;
+                executedRotation = turnFromPath;
             }
         }
 
-        public void execute()
+        public void execute(out float executedMovement,out double executedRotation)
         {
             Logger.Instance.LogInfo("Exectute called");
 
             //check the simple cases, where only one requested movement
             if (pathRequstedMovement && !objectDetectionRequstedMovement)
             {
-                handleSimplePathMovement();
+                handleSimplePathMovement(out executedMovement,out executedRotation);
             }
             else if (!pathRequstedMovement && objectDetectionRequstedMovement)
             {
-                handleObjectDetectionMovement();
+                handleObjectDetectionMovement(out executedMovement, out executedRotation);
+            }
+            else if (pathRequstedMovement && objectDetectionRequstedMovement)
+            {
+                //Logger.Instance.LogInfo("SHOULD HANDLE BOTH");
+                //executedMovement = 0;
+                //executedRotation = 0;
+                handleBothRequest(out executedMovement, out executedRotation);
             }
             else
             {
-                handleBothRequest();
+                Logger.Instance.LogInfo("NO INFO");
+                executedMovement = 0;
+                executedRotation = 0;
             }
 
             //reset the values

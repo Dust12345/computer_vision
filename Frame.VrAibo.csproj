@@ -98,6 +98,7 @@
     <Compile Include="NodeNavigator\MovementStep.cs" />
     <Compile Include="NodeNavigator\Node.cs" />
     <Compile Include="NodeNavigator\NodeNavigator.cs" />
+    <Compile Include="ObstacleManager.cs" />
     <Compile Include="ParcoursTerrain.cs" />
     <Compile Include="StereoVision.cs" />
     <Compile Include="Stripe01.cs" />
@@ -118,6 +119,7 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="VectorOperations.cs" />
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
