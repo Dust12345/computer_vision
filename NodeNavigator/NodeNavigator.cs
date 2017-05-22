@@ -10,8 +10,8 @@ namespace Frame.VrAibo.NodeNavigator
     {
         public Vector2 CurrentRobotPosition { get; private set; }
         public double CurrentRobotRotation { get; private set; }
+        public MovementHistory CurrentMovementHistory { get; private set; }
 
-        private MovementHistory _currentMovementHistory;
         private Node _headNode;
         private Node _lastNode;
 
@@ -21,7 +21,7 @@ namespace Frame.VrAibo.NodeNavigator
             CurrentRobotPosition = new Vector2(0, 0);
             CurrentRobotRotation = 0;
 
-            _currentMovementHistory = new MovementHistory();
+            CurrentMovementHistory = new MovementHistory();
             _headNode = new Node(null, null, true);
             _lastNode = _headNode;
         }
@@ -34,7 +34,7 @@ namespace Frame.VrAibo.NodeNavigator
         public void addMovement(float movementDistance, double rotation)
         {
             // Add new step to the current history
-            _currentMovementHistory.add(new MovementStep(movementDistance, rotation));
+            CurrentMovementHistory.add(new MovementStep(movementDistance, rotation));
 
             //add the rotation to the overall rotation
             CurrentRobotRotation += rotation;
@@ -54,9 +54,11 @@ namespace Frame.VrAibo.NodeNavigator
         /// </summary>
         public void createNewNodeAtCurrentPosition()
         {
-            Node newNode = new Node(_currentMovementHistory);
-            _currentMovementHistory.clear();
+            Node newNode = new Node(CurrentMovementHistory);
             _lastNode.Children.Add(newNode);
+
+            CurrentMovementHistory.clear();
+            _lastNode = newNode;
         }
 
         /// <summary>
