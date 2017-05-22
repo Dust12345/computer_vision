@@ -132,8 +132,9 @@ namespace Frame.VrAibo.Movement
 
             MovementStep step = history.pop(); // TODO: check if popped in source history
 
-            executedMovement = step.Movement;
-            executedRotation = step.Rotation;
+            // Feed execute behavior with the inverse of the history
+            executedMovement = -step.Movement;
+            executedRotation = -step.Rotation;
         }
 
         private void handleBothRequest(out float executedMovement, out double executedRotation)
