@@ -22,7 +22,7 @@ namespace Frame.VrAibo.NodeNavigator
             CurrentRobotRotation = 0;
 
             _currentMovementHistory = new MovementHistory();
-            _headNode = new Node(_currentMovementHistory);
+            _headNode = new Node(null, null, true);
             _lastNode = _headNode;
         }
 
