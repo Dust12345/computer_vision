@@ -95,6 +95,7 @@
     <Compile Include="ComputerVision.cs" />
     <Compile Include="ImageOperations.cs" />
     <Compile Include="MovementConsenter\MovementConsenter.cs" />
+    <Compile Include="NodeNavigator\MovementHistory.cs" />
     <Compile Include="NodeNavigator\MovementStep.cs" />
     <Compile Include="NodeNavigator\Node.cs" />
     <Compile Include="NodeNavigator\NodeNavigator.cs" />

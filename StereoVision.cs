@@ -1143,7 +1143,7 @@ namespace Frame.VrAibo
             Logger.Instance.LogInfo("-------------------------");
 
             Vector2 target = new Vector2(0, 30);
-            Vector2 robotPos = nn.RobotPosition;
+            Vector2 robotPos = nn.CurrentRobotPosition;
 
             Image<Gray, byte> maskFront = new Image<Gray, byte>(front.Size);
             Image<Gray, byte> maskLeft = new Image<Gray, byte>(left.Size);
@@ -1158,7 +1158,7 @@ namespace Frame.VrAibo
 
             //mask the objects
 
-            List<Hsv> colorsToMask = om.getColorsOfCloseObstacals(nn.RobotPosition, 5);
+            List<Hsv> colorsToMask = om.getColorsOfCloseObstacals(nn.CurrentRobotPosition, 5);
 
 
 
@@ -1460,11 +1460,11 @@ namespace Frame.VrAibo
 
                     Vector2 vectorToObject = new Vector2(0, (float)estimatedDist);
 
-                    double overallRotation = (phi + nn.RobotRotation) % 360;
+                    double overallRotation = (phi + nn.CurrentRobotRotation) % 360;
 
                     Vector2 objectWorldPos = VctOp.calcMovementVector(overallRotation, vectorToObject);
 
-                    objectWorldPos += nn.RobotPosition;
+                    objectWorldPos += nn.CurrentRobotPosition;
 
                     om.addObstacal(objectColor, objectWorldPos);
 
