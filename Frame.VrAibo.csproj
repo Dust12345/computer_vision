@@ -94,11 +94,11 @@
   <ItemGroup>
     <Compile Include="ComputerVision.cs" />
     <Compile Include="ImageOperations.cs" />
-    <Compile Include="MovementConsenter\MovementConsenter.cs" />
-    <Compile Include="NodeNavigator\MovementHistory.cs" />
-    <Compile Include="NodeNavigator\MovementStep.cs" />
-    <Compile Include="NodeNavigator\Node.cs" />
-    <Compile Include="NodeNavigator\NodeNavigator.cs" />
+    <Compile Include="Movement\MovementConsenter.cs" />
+    <Compile Include="Node\MovementHistory.cs" />
+    <Compile Include="Node\MovementStep.cs" />
+    <Compile Include="Node\Node.cs" />
+    <Compile Include="Node\NodeNavigator.cs" />
     <Compile Include="ObstacleManager.cs" />
     <Compile Include="ParcoursTerrain.cs" />
     <Compile Include="StereoVision.cs" />

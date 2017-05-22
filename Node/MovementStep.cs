@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Frame.VrAibo.NodeNavigator
+namespace Frame.VrAibo.Node
 {
     class MovementStep
     {

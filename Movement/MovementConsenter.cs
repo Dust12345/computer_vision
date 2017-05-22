@@ -3,11 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using GLab.StereoVision;
-
-
 using GLab.Core;
+using Frame.VrAibo.Node;
 
-namespace Frame.VrAibo.MovementConsenter
+namespace Frame.VrAibo.Movement
 {
     class MovementConsenter
     {
@@ -26,13 +25,16 @@ namespace Frame.VrAibo.MovementConsenter
 
         private double angleDiffThreshold = 15;
 
-        
+        private bool returnToLastNode = false;
+
+        private NodeNavigator _navigator;
 
 
-        public MovementConsenter(GLab.VirtualAibo.VrAibo robot)
+        public MovementConsenter(GLab.VirtualAibo.VrAibo robot, NodeNavigator navigator)
         {
             astimatedDistanceToObject = -1;
             _robot = robot;
+            _navigator = navigator;
         }
 
         public void RequestMovement(float amount)
@@ -121,6 +123,19 @@ namespace Frame.VrAibo.MovementConsenter
             executedRotation = turnFromObjectDetection;
         }
 
+        private void handleReturnToLastNode(out float executedMovement, out double executedRotation)
+        {
+            Logger.Instance.LogInfo("Handle returning to last node");
+
+            // Get node history
+            MovementHistory history = _navigator.CurrentMovementHistory;
+
+            MovementStep step = history.pop(); // TODO: check if popped in source history
+
+            executedMovement = step.Movement;
+            executedRotation = step.Rotation;
+        }
+
         private void handleBothRequest(out float executedMovement, out double executedRotation)
         {
             Logger.Instance.LogInfo("handle both");
@@ -147,7 +162,7 @@ namespace Frame.VrAibo.MovementConsenter
                 return;
             }
 
-                
+#if false 
             //obkect was detected
             if (astimatedDistanceToObject < movementFromPath)
             {
@@ -171,6 +186,7 @@ namespace Frame.VrAibo.MovementConsenter
                 executedMovement = movementFromPath;
                 executedRotation = turnFromPath;
             }
+#endif
         }
 
         public void execute(out float executedMovement,out double executedRotation)
@@ -178,7 +194,11 @@ namespace Frame.VrAibo.MovementConsenter
             Logger.Instance.LogInfo("Exectute called");
 
             //check the simple cases, where only one requested movement
-            if (pathRequstedMovement && !objectDetectionRequstedMovement)
+            if(returnToLastNode)
+            {
+                handleReturnToLastNode(out executedMovement, out executedRotation);
+            }
+            else if (pathRequstedMovement && !objectDetectionRequstedMovement)
             {
                 handleSimplePathMovement(out executedMovement,out executedRotation);
             }

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using Microsoft.Xna.Framework;
 
-namespace Frame.VrAibo.NodeNavigator
+namespace Frame.VrAibo.Node
 {
     class NodeNavigator
     {
@@ -34,7 +34,7 @@ namespace Frame.VrAibo.NodeNavigator
         public void addMovement(float movementDistance, double rotation)
         {
             // Add new step to the current history
-            CurrentMovementHistory.add(new MovementStep(movementDistance, rotation));
+            CurrentMovementHistory.push(new MovementStep(movementDistance, rotation));
 
             //add the rotation to the overall rotation
             CurrentRobotRotation += rotation;

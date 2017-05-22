@@ -12,6 +12,8 @@ using GLab.Core.PluginInterfaces;
 using GLab.VirtualAibo;
 using GLab.VirtualAibo.Forms;
 using Microsoft.Xna.Framework;
+using Frame.VrAibo.Node;
+using Frame.VrAibo.Movement;
 
 #endregion
 
@@ -70,10 +72,10 @@ namespace Frame.VrAibo
         Hsv colorfDetectedObject = new Hsv();
         bool objectDetected = false;
 
-        MovementConsenter.MovementConsenter mc;
+        MovementConsenter movementConsenter;
 
         ObstacleManager om;
-        NodeNavigator.NodeNavigator nn;
+        NodeNavigator nodeNavigator;
 
         float distMovedTillLastTurn = 0;
 
@@ -135,7 +137,7 @@ namespace Frame.VrAibo
 
 
             om = new ObstacleManager();
-            nn = new NodeNavigator.NodeNavigator();
+            nodeNavigator = new NodeNavigator();
 
             //add some colors for testing stuff
 
@@ -179,7 +181,7 @@ namespace Frame.VrAibo
 
             //{X:0,047 Y:50,34013}
 
-            mc = new MovementConsenter.MovementConsenter(_vrAibo);
+            movementConsenter = new MovementConsenter(_vrAibo, nodeNavigator);
 
 
             /*
@@ -694,7 +696,7 @@ namespace Frame.VrAibo
                     if (movePairs[0].left)
                     {
 
-                        mc.pathDetectionReques(AiboSpeed, 90);
+                        movementConsenter.pathDetectionReques(AiboSpeed, 90);
 
                         distMovedTillLastTurn += AiboSpeed;
 
@@ -707,7 +709,7 @@ namespace Frame.VrAibo
                     {
 
 
-                        mc.pathDetectionReques(AiboSpeed, 0);
+                        movementConsenter.pathDetectionReques(AiboSpeed, 0);
 
 
                         distMovedTillLastTurn += AiboSpeed;
@@ -719,7 +721,7 @@ namespace Frame.VrAibo
                     else
                     {
 
-                        mc.pathDetectionReques(AiboSpeed, -90);
+                        movementConsenter.pathDetectionReques(AiboSpeed, -90);
 
                         distMovedTillLastTurn += AiboSpeed;
 
@@ -779,7 +781,7 @@ namespace Frame.VrAibo
                         }
 
 
-                        mc.pathDetectionReques(AiboSpeed, phi);
+                        movementConsenter.pathDetectionReques(AiboSpeed, phi);
                         movePairs.Add(mp);
                         distMovedTillLastTurn += AiboSpeed;
                     }
@@ -803,7 +805,7 @@ namespace Frame.VrAibo
                             mp.rigth = true;
                             //if both way, go left first
 
-                            mc.pathDetectionReques(AiboSpeed, 90);
+                            movementConsenter.pathDetectionReques(AiboSpeed, 90);
                             distMovedTillLastTurn += AiboSpeed;
 
                             mp.left = false;
@@ -814,7 +816,7 @@ namespace Frame.VrAibo
                         }
                         else if (LeftOK)
                         {
-                            mc.pathDetectionReques(AiboSpeed, 90);
+                            movementConsenter.pathDetectionReques(AiboSpeed, 90);
                             distMovedTillLastTurn += AiboSpeed;
 
                             mp.left = false;
@@ -826,7 +828,7 @@ namespace Frame.VrAibo
                         {
 
 
-                            mc.pathDetectionReques(AiboSpeed, -90);
+                            movementConsenter.pathDetectionReques(AiboSpeed, -90);
                             distMovedTillLastTurn += AiboSpeed;
 
                             mp.rigth = false;
@@ -860,14 +862,14 @@ namespace Frame.VrAibo
                     {
                         //simpe left turn
 
-                        mc.pathDetectionReques(AiboSpeed, 90);
+                        movementConsenter.pathDetectionReques(AiboSpeed, 90);
                         distMovedTillLastTurn = 0;
                         return;
                     }
                     else if (!leftScanResult && rigthScanResult)
                     {
                         //simple rigth turn
-                        mc.pathDetectionReques(AiboSpeed, -90);
+                        movementConsenter.pathDetectionReques(AiboSpeed, -90);
                         distMovedTillLastTurn = 0;
                         return;
                     }
@@ -898,13 +900,13 @@ namespace Frame.VrAibo
 
             if (movePairs.Count - 1 == 0)
             {
-                mc.RequestMovement(mp.movement);
-                mc.RequestRotation(mp.turn);
+                movementConsenter.RequestMovement(mp.movement);
+                movementConsenter.RequestRotation(mp.turn);
             }
             else
             {
-                mc.RequestMovement(mp.movement);
-                mc.RequestRotation(mp.turn * -1);
+                movementConsenter.RequestMovement(mp.movement);
+                movementConsenter.RequestRotation(mp.turn * -1);
             }
 
             if (movePairs.Count > 1)
@@ -1143,7 +1145,7 @@ namespace Frame.VrAibo
             Logger.Instance.LogInfo("-------------------------");
 
             Vector2 target = new Vector2(0, 30);
-            Vector2 robotPos = nn.CurrentRobotPosition;
+            Vector2 robotPos = nodeNavigator.CurrentRobotPosition;
 
             Image<Gray, byte> maskFront = new Image<Gray, byte>(front.Size);
             Image<Gray, byte> maskLeft = new Image<Gray, byte>(left.Size);
@@ -1158,7 +1160,7 @@ namespace Frame.VrAibo
 
             //mask the objects
 
-            List<Hsv> colorsToMask = om.getColorsOfCloseObstacals(nn.CurrentRobotPosition, 5);
+            List<Hsv> colorsToMask = om.getColorsOfCloseObstacals(nodeNavigator.CurrentRobotPosition, 5);
 
 
 
@@ -1180,7 +1182,7 @@ namespace Frame.VrAibo
 
             Vector2 dirVct = VctOp.getVectorTotarget(robotPos, target);
 
-            Vector2 currentHeading = nn.getCurrentHeading();
+            Vector2 currentHeading = nodeNavigator.getCurrentHeading();
 
             double angle = Math.Abs(VctOp.calcAngleBeteenVectors(currentHeading, dirVct));
             double angle2 = VctOp.calcAngleBeteenVectors(currentHeading, dirVct);
@@ -1212,20 +1214,20 @@ namespace Frame.VrAibo
                         Logger.Instance.LogInfo("Turn rigth");
                         //left is free
                         //_vrAibo.Turn(-90);
-                        mc.objectDetectionReques(0, -90);
+                        movementConsenter.objectDetectionReques(0, -90);
                     }
                     else
                     {
                         Logger.Instance.LogInfo("Turn L");
                         //rigth is free
                         //_vrAibo.Turn(+90);
-                        mc.objectDetectionReques(0, 90);
+                        movementConsenter.objectDetectionReques(0, 90);
                     }
                 }
                 else
                 {
                     //_vrAibo.Walk(AiboSpeed);
-                    mc.objectDetectionReques(AiboSpeed, 0);
+                    movementConsenter.objectDetectionReques(AiboSpeed, 0);
                 }
             }
             else if (angle > 45 && angle < 135)
@@ -1242,13 +1244,13 @@ namespace Frame.VrAibo
 
                         //object to the left
                         //_vrAibo.Walk(AiboSpeed);
-                        mc.objectDetectionReques(AiboSpeed, 0);
+                        movementConsenter.objectDetectionReques(AiboSpeed, 0);
                     }
                     else
                     {
                         //left ok
                         //_vrAibo.Turn(+90);
-                        mc.objectDetectionReques(0, 90);
+                        movementConsenter.objectDetectionReques(0, 90);
 
                     }
                 }
@@ -1262,7 +1264,7 @@ namespace Frame.VrAibo
                         Logger.Instance.LogInfo("R is blocked");
                         //object to the rigth
                         //_vrAibo.Walk(AiboSpeed);
-                        mc.objectDetectionReques(AiboSpeed, 0);
+                        movementConsenter.objectDetectionReques(AiboSpeed, 0);
 
                     }
                     else
@@ -1270,7 +1272,7 @@ namespace Frame.VrAibo
                         Logger.Instance.LogInfo("R is free");
                         //rigth ok
                         //_vrAibo.Turn(-90);
-                        mc.objectDetectionReques(0, -90);
+                        movementConsenter.objectDetectionReques(0, -90);
 
                     }
                 }
@@ -1460,11 +1462,11 @@ namespace Frame.VrAibo
 
                     Vector2 vectorToObject = new Vector2(0, (float)estimatedDist);
 
-                    double overallRotation = (phi + nn.CurrentRobotRotation) % 360;
+                    double overallRotation = (phi + nodeNavigator.CurrentRobotRotation) % 360;
 
                     Vector2 objectWorldPos = VctOp.calcMovementVector(overallRotation, vectorToObject);
 
-                    objectWorldPos += nn.CurrentRobotPosition;
+                    objectWorldPos += nodeNavigator.CurrentRobotPosition;
 
                     om.addObstacal(objectColor, objectWorldPos);
 
@@ -1710,9 +1712,9 @@ namespace Frame.VrAibo
                     float executedMovement;
                     double executedRotation;
 
-                    mc.execute(out executedMovement, out executedRotation);
+                    movementConsenter.execute(out executedMovement, out executedRotation);
 
-                    nn.addMovement(executedMovement, executedRotation);
+                    nodeNavigator.addMovement(executedMovement, executedRotation);
 
 
 
