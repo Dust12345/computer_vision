@@ -28,6 +28,7 @@ namespace Frame.VrAibo.Movement
         private bool returnToLastNode = false;
 
         private NodeNavigator _navigator;
+        private MovementLimiter _currentLimiter;
 
 
         public MovementConsenter(GLab.VirtualAibo.VrAibo robot, NodeNavigator navigator)
@@ -35,33 +36,38 @@ namespace Frame.VrAibo.Movement
             astimatedDistanceToObject = -1;
             _robot = robot;
             _navigator = navigator;
+
+            // TODO dummy assignment to initialize field
+            _currentLimiter = new MovementLimiter(robot, new MovementStep(0.0f, 0.0f));
         }
 
-        public void RequestMovement(float amount)
+        public void RequestReturnToLastNode()
         {
-            /*
-            if(astimatedDistanceToObject == -1)
-            {
-                 _robot.Walk(amount);
-                return;
-            }
-
-             //temporary
-            if (astimatedDistanceToObject < amount)
-            {
-                //do nothing
-            }
-            else
-            {
-                astimatedDistanceToObject -= amount;
-                _robot.Walk(amount);
-            }*/
-
-
-           
+            returnToLastNode = true;
         }
 
-        public void pathDetectionReques(float movement, double rotation)
+        private bool HandleMovement(float moveAmount, float turnAmount)
+        {
+            if(_currentLimiter.Done)
+            {
+                _currentLimiter = new MovementLimiter(_robot, new MovementStep(moveAmount, turnAmount));
+            }
+
+            return _currentLimiter.Done;
+        }
+
+        public bool RequestMovement(float amount)
+        {
+            return HandleMovement(amount, 0.0f);
+        }
+
+        public void RequestRotation(float amount)
+        {
+            // TODO: conditions
+            HandleMovement(0.0f, amount);
+        }
+
+        public void pathDetectionRequest(float movement, double rotation)
         {
           
               pathRequstedMovement = true;
@@ -69,25 +75,24 @@ namespace Frame.VrAibo.Movement
               turnFromPath = (float)rotation;
         }
 
-        public void objectDetectionReques(float movement, double rotation)
+        public void objectDetectionRequest(float movement, double rotation)
         {
               objectDetectionRequstedMovement = true;
               moveFromObjectDetection = movement;
               turnFromObjectDetection = (float)rotation;
         }
 
-        public void RequestRotation(float amount)
+        public bool busy()
         {
-            _robot.Turn(amount);
+            return !_currentLimiter.Done;
         }
 
-        private void handleSimplePathMovement(out float executedMovement, out double executedRotation)
+        private void handleSimplePathMovement(out float executedMovement, out float executedRotation)
         {
             if (astimatedDistanceToObject == -1)
             {
                 //no objecz detected, just move
-                _robot.Turn(turnFromPath);
-                _robot.Walk(movementFromPath);              
+                HandleMovement(movementFromPath, turnFromPath);             
                 executedMovement = movementFromPath;
                 executedRotation = turnFromPath;
                 return;
@@ -104,8 +109,7 @@ namespace Frame.VrAibo.Movement
                 else
                 {
                     astimatedDistanceToObject -= movementFromPath;
-                    _robot.Turn(turnFromPath);
-                    _robot.Walk(movementFromPath);
+                    HandleMovement(movementFromPath, turnFromPath);
                     executedMovement = movementFromPath;
                     executedRotation = turnFromPath;
                     return;
@@ -113,31 +117,40 @@ namespace Frame.VrAibo.Movement
             }
         }
 
-        private void handleObjectDetectionMovement(out float executedMovement, out double executedRotation)
+        private void handleObjectDetectionMovement(out float executedMovement, out float executedRotation)
         {
             Logger.Instance.LogInfo("handle just object");
-            _robot.Turn(turnFromObjectDetection);
-            _robot.Walk(moveFromObjectDetection);
+            HandleMovement(moveFromObjectDetection, turnFromObjectDetection);
 
             executedMovement = moveFromObjectDetection;
             executedRotation = turnFromObjectDetection;
         }
 
-        private void handleReturnToLastNode(out float executedMovement, out double executedRotation)
+        private void handleReturnToLastNode(out float executedMovement, out float executedRotation)
         {
-            Logger.Instance.LogInfo("Handle returning to last node");
-
-            // Get node history
+            // Get current node history
             MovementHistory history = _navigator.CurrentMovementHistory;
 
-            MovementStep step = history.pop(); // TODO: check if popped in source history
+            if (history.Count <= 0)
+            { 
+                returnToLastNode = false;
+
+                // TODO: useless last execution path for empty movement history
+                executedMovement = 0;
+                executedRotation = 0;
+                return;
+            }
+
+            Logger.Instance.LogInfo("Handle returning to last node");
+
+            MovementStep step = history.pop();
 
             // Feed execute behavior with the inverse of the history
             executedMovement = -step.Movement;
             executedRotation = -step.Rotation;
         }
 
-        private void handleBothRequest(out float executedMovement, out double executedRotation)
+        private void handleBothRequest(out float executedMovement, out float executedRotation)
         {
             Logger.Instance.LogInfo("handle both");
 
@@ -148,16 +161,14 @@ namespace Frame.VrAibo.Movement
 
             if (angleDiff < angleDiffThreshold)
             {
-                _robot.Turn(turnFromPath);
-                _robot.Walk(movementFromPath);
+                HandleMovement(movementFromPath, turnFromPath);
                 executedMovement = movementFromPath;
                 executedRotation = turnFromPath;
                 return;
             }
             else
             {
-                _robot.Turn(turnFromObjectDetection);
-                _robot.Walk(moveFromObjectDetection);
+                HandleMovement(moveFromObjectDetection, turnFromObjectDetection);
                 executedMovement = moveFromObjectDetection;
                 executedRotation = turnFromObjectDetection;
                 return;
@@ -190,7 +201,7 @@ namespace Frame.VrAibo.Movement
 #endif
         }
 
-        public void execute(out float executedMovement,out double executedRotation)
+        public void execute(out float executedMovement,out float executedRotation)
         {
             Logger.Instance.LogInfo("Exectute called");
 
@@ -202,10 +213,12 @@ namespace Frame.VrAibo.Movement
             else if (pathRequstedMovement && !objectDetectionRequstedMovement)
             {
                 handleSimplePathMovement(out executedMovement,out executedRotation);
+                _navigator.addMovement(executedMovement, executedRotation);
             }
             else if (!pathRequstedMovement && objectDetectionRequstedMovement)
             {
                 handleObjectDetectionMovement(out executedMovement, out executedRotation);
+                _navigator.addMovement(executedMovement, executedRotation);
             }
             else if (pathRequstedMovement && objectDetectionRequstedMovement)
             {
@@ -213,6 +226,7 @@ namespace Frame.VrAibo.Movement
                 //executedMovement = 0;
                 //executedRotation = 0;
                 handleBothRequest(out executedMovement, out executedRotation);
+                _navigator.addMovement(executedMovement, executedRotation);
             }
             else
             {
@@ -228,6 +242,14 @@ namespace Frame.VrAibo.Movement
             turnFromPath = 0;
             moveFromObjectDetection = 0;
             turnFromObjectDetection = 0;
+        }
+
+        internal void update()
+        {
+            if (!_currentLimiter.Done)
+            {
+                _currentLimiter.execute();
+            }
         }
     }
 }

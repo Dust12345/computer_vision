@@ -9,6 +9,11 @@ namespace Frame.VrAibo.Navigation
     {
         private Stack<MovementStep> _movementHistory;
 
+        /// <summary>
+        /// Gets the number of elements contained in the movement history
+        /// </summary>
+        public int Count { get { return _movementHistory.Count; } }
+
         public MovementHistory()
         {
             _movementHistory = new Stack<MovementStep>();

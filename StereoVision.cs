@@ -696,7 +696,7 @@ namespace Frame.VrAibo
                     if (movePairs[0].left)
                     {
 
-                        movementConsenter.pathDetectionReques(AiboSpeed, 90);
+                        movementConsenter.pathDetectionRequest(AiboSpeed, 90);
 
                         distMovedTillLastTurn += AiboSpeed;
 
@@ -709,7 +709,7 @@ namespace Frame.VrAibo
                     {
 
 
-                        movementConsenter.pathDetectionReques(AiboSpeed, 0);
+                        movementConsenter.pathDetectionRequest(AiboSpeed, 0);
 
 
                         distMovedTillLastTurn += AiboSpeed;
@@ -721,7 +721,7 @@ namespace Frame.VrAibo
                     else
                     {
 
-                        movementConsenter.pathDetectionReques(AiboSpeed, -90);
+                        movementConsenter.pathDetectionRequest(AiboSpeed, -90);
 
                         distMovedTillLastTurn += AiboSpeed;
 
@@ -781,7 +781,7 @@ namespace Frame.VrAibo
                         }
 
 
-                        movementConsenter.pathDetectionReques(AiboSpeed, phi);
+                        movementConsenter.pathDetectionRequest(AiboSpeed, phi);
                         movePairs.Add(mp);
                         distMovedTillLastTurn += AiboSpeed;
                     }
@@ -805,7 +805,7 @@ namespace Frame.VrAibo
                             mp.rigth = true;
                             //if both way, go left first
 
-                            movementConsenter.pathDetectionReques(AiboSpeed, 90);
+                            movementConsenter.pathDetectionRequest(AiboSpeed, 90);
                             distMovedTillLastTurn += AiboSpeed;
 
                             mp.left = false;
@@ -816,7 +816,7 @@ namespace Frame.VrAibo
                         }
                         else if (LeftOK)
                         {
-                            movementConsenter.pathDetectionReques(AiboSpeed, 90);
+                            movementConsenter.pathDetectionRequest(AiboSpeed, 90);
                             distMovedTillLastTurn += AiboSpeed;
 
                             mp.left = false;
@@ -828,7 +828,7 @@ namespace Frame.VrAibo
                         {
 
 
-                            movementConsenter.pathDetectionReques(AiboSpeed, -90);
+                            movementConsenter.pathDetectionRequest(AiboSpeed, -90);
                             distMovedTillLastTurn += AiboSpeed;
 
                             mp.rigth = false;
@@ -844,6 +844,7 @@ namespace Frame.VrAibo
                 else
                 {
                     Logger.Instance.LogInfo("FRONT NOT OK");
+                    //movementConsenter.RequestReturnToLastNode();
 
                     //front not ok
 
@@ -862,14 +863,14 @@ namespace Frame.VrAibo
                     {
                         //simpe left turn
 
-                        movementConsenter.pathDetectionReques(AiboSpeed, 90);
+                        movementConsenter.pathDetectionRequest(AiboSpeed, 90);
                         distMovedTillLastTurn = 0;
                         return;
                     }
                     else if (!leftScanResult && rigthScanResult)
                     {
                         //simple rigth turn
-                        movementConsenter.pathDetectionReques(AiboSpeed, -90);
+                        movementConsenter.pathDetectionRequest(AiboSpeed, -90);
                         distMovedTillLastTurn = 0;
                         return;
                     }
@@ -1214,20 +1215,20 @@ namespace Frame.VrAibo
                         Logger.Instance.LogInfo("Turn rigth");
                         //left is free
                         //_vrAibo.Turn(-90);
-                        movementConsenter.objectDetectionReques(0, -90);
+                        movementConsenter.objectDetectionRequest(0, -90);
                     }
                     else
                     {
                         Logger.Instance.LogInfo("Turn L");
                         //rigth is free
                         //_vrAibo.Turn(+90);
-                        movementConsenter.objectDetectionReques(0, 90);
+                        movementConsenter.objectDetectionRequest(0, 90);
                     }
                 }
                 else
                 {
                     //_vrAibo.Walk(AiboSpeed);
-                    movementConsenter.objectDetectionReques(AiboSpeed, 0);
+                    movementConsenter.objectDetectionRequest(AiboSpeed, 0);
                 }
             }
             else if (angle > 45 && angle < 135)
@@ -1244,13 +1245,13 @@ namespace Frame.VrAibo
 
                         //object to the left
                         //_vrAibo.Walk(AiboSpeed);
-                        movementConsenter.objectDetectionReques(AiboSpeed, 0);
+                        movementConsenter.objectDetectionRequest(AiboSpeed, 0);
                     }
                     else
                     {
                         //left ok
                         //_vrAibo.Turn(+90);
-                        movementConsenter.objectDetectionReques(0, 90);
+                        movementConsenter.objectDetectionRequest(0, 90);
 
                     }
                 }
@@ -1264,7 +1265,7 @@ namespace Frame.VrAibo
                         Logger.Instance.LogInfo("R is blocked");
                         //object to the rigth
                         //_vrAibo.Walk(AiboSpeed);
-                        movementConsenter.objectDetectionReques(AiboSpeed, 0);
+                        movementConsenter.objectDetectionRequest(AiboSpeed, 0);
 
                     }
                     else
@@ -1272,7 +1273,7 @@ namespace Frame.VrAibo
                         Logger.Instance.LogInfo("R is free");
                         //rigth ok
                         //_vrAibo.Turn(-90);
-                        movementConsenter.objectDetectionReques(0, -90);
+                        movementConsenter.objectDetectionRequest(0, -90);
 
                     }
                 }
@@ -1594,7 +1595,10 @@ namespace Frame.VrAibo
                 //Logger.Instance.LogInfo("distance: " + depth);
                 lastDepth = depth;
 
-
+            if (movementConsenter.busy())
+            {
+                movementConsenter.update();
+            }
             //---------------------------
 
 
@@ -1710,14 +1714,10 @@ namespace Frame.VrAibo
                     //Logger.Instance.LogInfo("distance to object "+mc.astimatedDistanceToObject);
 
                     float executedMovement;
-                    double executedRotation;
+                    float executedRotation;
 
                     movementConsenter.execute(out executedMovement, out executedRotation);
-
-                    nodeNavigator.addMovement(executedMovement, executedRotation);
-
-
-
+                    //nodeNavigator.addMovement(executedMovement, executedRotation);
                 }
 
             }

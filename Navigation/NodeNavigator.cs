@@ -31,7 +31,7 @@ namespace Frame.VrAibo.Navigation
             return VctOp.calcMovementVector(CurrentRobotRotation, new Vector2(0, 1));
         }
 
-        public void addMovement(float movementDistance, double rotation)
+        public void addMovement(float movementDistance, float rotation)
         {
             // Add new step to the current history
             CurrentMovementHistory.push(new MovementStep(movementDistance, rotation));

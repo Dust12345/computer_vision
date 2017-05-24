@@ -7,10 +7,10 @@ namespace Frame.VrAibo.Navigation
 {
     class MovementStep
     {
-        public double Rotation { get; private set; }
+        public float Rotation { get; private set; }
         public float Movement { get; private set; }
 
-        public MovementStep(float movement, double rotation)
+        public MovementStep(float movement, float rotation)
         {
             Rotation = rotation;
             Movement = movement;
