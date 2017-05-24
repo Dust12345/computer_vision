@@ -54,7 +54,7 @@ namespace Frame.VrAibo.Navigation
         /// </summary>
         public void createNewNodeAtCurrentPosition()
         {
-            Node newNode = new Node(CurrentMovementHistory);
+            Node newNode = new Node(CurrentMovementHistory, _lastNode);
             _lastNode.Children.Add(newNode);
 
             CurrentMovementHistory.clear();

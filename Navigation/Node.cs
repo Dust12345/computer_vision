@@ -16,13 +16,10 @@ namespace Frame.VrAibo.Navigation
         public Node Parent { get; private set; }
         public int TraversalCount { get; private set; }
 
-        private bool _isRootNode;
+        public bool IsRootNode { get; private set; }
 
         public Node(MovementHistory movementHistory = null, Node parent = null, bool setAsRoot = false)
         {
-            MovementHistory = movementHistory;
-            Parent = parent;
-
             if(setAsRoot)
             {
                 if(RootNode != null)
@@ -30,18 +27,26 @@ namespace Frame.VrAibo.Navigation
                     throw new InvalidOperationException("A root node is already defined!");
                 }
 
-                _isRootNode = true;
+                IsRootNode = true;
                 RootNode = this;
             }
-        }
+            else
+            {
+                // If it's not a root node, then it must have a parent
+                if(parent == null)
+                {
+                    throw new ArgumentException("Parent must be defined for non-root nodes");
+                }
 
-        /// <summary>
-        /// Returns true if node is root
-        /// </summary>
-        /// <returns></returns>
-        public bool isRootNode()
-        {
-            return _isRootNode;
+                // Similarily, any node that isn't root must have a movement history that leads to it
+                if(movementHistory == null)
+                {
+                    throw new ArgumentException("Movement history must be defined for non-root nodes");
+                }
+            }
+
+            MovementHistory = movementHistory;
+            Parent = parent;
         }
     }
 }
