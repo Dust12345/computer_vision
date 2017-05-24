@@ -102,8 +102,6 @@ namespace Frame.VrAibo
         private Image<Rgb, byte> left;
         private Image<Rgb, byte> rigth;
 
-        private int lastFrontStart = -1;
-        private int lastFrontEnd = -1;
         private int lineStartFront = -1;
         private int lineEndFront = -1;
 
@@ -329,300 +327,16 @@ namespace Frame.VrAibo
             }
         }
 
-        private int scanHorizontal(Image<Rgb, byte> img, System.Drawing.Point poo, Rgb pathColor, int dir)
-        {
-
-            int x = poo.X;
-            int y = poo.Y;
-
-            //scan starting from the point of interest into the given dir until the color of that pixel does not longer match the path color
-            while (true)
-            {
-                //check if we ran of the image
-                if (x < 0 || x >= img.Width)
-                {
-                    return x;
-                }
-                else
-                {
-                    //check the color
-                    if (pathColor.Blue == img[y, x].Blue && pathColor.Red == img[y, x].Red && pathColor.Green == img[y, x].Green)
-                    {
-                        //still the same color, keep going
-                        x = x + dir;
-                    }
-                    else
-                    {
-                        //end of the path reached
-                        return x - dir;
-                    }
-                }
-            }
-        }
-
-        private bool scanAhead(Image<Rgb, byte> img, System.Drawing.Point poo, Image<Rgb, byte> dbImage, Rgb pathColor, ref System.Drawing.Point pointOfIntersection, out int dir)
-        {
-            int scanInterval = 15;
-
-            stuff.SetImage(img);
-
-            dir = 0;
-
-            int y = poo.Y;
-            int x = poo.X;
-            int stepsTillLastHorizontalScan = 0;
-            int pathEnd = 0;
-
-            pathColor = img[poo];
-
-            //scan verticaly until the path ends
-            while (true)
-            {
-                //check if we ran of the image
-                if (y < 0)
-                {
-                    //ran of the image
-                    break;
-                }
-                else
-                {
-
-                    //check if the color is still the same
-                    if (pathColor.Blue == img[y, x].Blue && pathColor.Red == img[y, x].Red && pathColor.Green == img[y, x].Green)
-                    {
-                        //still on the path
-                        //check if we need to start a horizontal scan
-                        if (stepsTillLastHorizontalScan == scanInterval)
-                        {
-                            //start an horizontal scan
-                            System.Drawing.Point origin = new System.Drawing.Point(x, y);
-                            int pathEndLeft = scanHorizontal(img, origin, pathColor, -1);
-                            int pathEndRigth = scanHorizontal(img, origin, pathColor, 1);
-
-                            LineSegment2D ls2 = new LineSegment2D(new System.Drawing.Point(pathEndLeft, y), new System.Drawing.Point(pathEndRigth, y));
-
-
-                            //check if an intersection
-                            if (pathEndLeft == 0 || pathEndRigth == img.Width)
-                            {
-
-                                pointOfIntersection.X = origin.X;
-                                pointOfIntersection.Y = origin.Y;
-
-                                //chck which way the intersection
-                                if (pathEndLeft == 0)
-                                {
-                                    dir = -1;
-                                }
-                                else
-                                {
-                                    dir = 1;
-                                }
-
-                                dbImage.Draw(ls2, new Rgb(0, 255, 0), 2);
-                                return true;
-
-                            }
-                            else
-                            {
-                                dbImage.Draw(ls2, new Rgb(0, 0, 255), 2);
-                            }
-
-
-                            //reset the counter
-                            stepsTillLastHorizontalScan = 0;
-                        }
-                        else
-                        {
-                            stepsTillLastHorizontalScan++;
-                        }
-                        y--;
-                    }
-                    else
-                    {
-                        //path endet
-                        pathEnd = y;
-                        break;
-                    }
-
-                }
-            }
-            LineSegment2D ls3 = new LineSegment2D(new System.Drawing.Point(poo.X, poo.Y), new System.Drawing.Point(poo.X, pathEnd));
-            dbImage.Draw(ls3, new Rgb(0, 0, 255), 2);
-            return false;
-        }
-
-        private bool isSidePath(int lineStart, int lineEnd, int imgWidth)
-        {
-            //first case applies if the path is wider than the image
-            if (lineStart == 0 && lineEnd == imgWidth)
-            {
-                return true;
-            }
-            else if (lineStart > 0 && lineEnd <= imgWidth)
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        private bool scanForPath(Image<Rgb, byte> img, int heigth, out int lineStart, out int lineEnd)
-        {
-
-            lineStart = 0;
-            lineEnd = 256;
-
-            // ...and find the line
-            for (int x = 0; x < img.Width; ++x)
-            {
-
-                //color to check the path
-                Rgb pixel = img[heigth, x];
-                int puixelOfSameColor = 0;
-                lineStart = x;
-
-                //look ahead to see if this is the color of tzhe path
-                for (int j = x; j < img.Width; j++)
-                {
-                    if (pixel.Blue == img[heigth, j].Blue && pixel.Red == img[heigth, j].Red && pixel.Green == img[heigth, j].Green)
-                    {
-                        puixelOfSameColor++;
-                        lineEnd = j;
-                    }
-                    else
-                    {
-                        lineEnd = j - 1;
-                        break;
-                    }
-                }
-
-
-
-                //cherck if this was the path
-                if (puixelOfSameColor >= pathMinThreshold)
-                {
-                    return true;
-                }
-
-            }
-
-            return false;
-        }
-
-
-
-
-        private bool checkIfvalidPath(int start, int end, int heigth, Image<Rgb, byte> img, int scanDist)
-        {
-            int center = (end - ((end - start) / 2));
-
-            Rgb referenceColor = img[heigth, center];
-
-            for (int i = 0; i < scanDist; i++)
-            {
-                if (referenceColor.Blue == img[heigth - i, center].Blue && referenceColor.Red == img[heigth - i, center].Red && referenceColor.Green == img[heigth - i, center].Green)
-                {
-
-                }
-                else
-                {
-                    LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(center, heigth), new System.Drawing.Point(center, heigth - i));
-
-                    img.Draw(ls, new Rgb(0, 255, 0), 2);
-
-                    return false;
-                }
-            }
-
-            LineSegment2D ls1 = new LineSegment2D(new System.Drawing.Point(center, heigth), new System.Drawing.Point(center, heigth - scanDist));
-
-            img.Draw(ls1, new Rgb(0, 0, 255), 2);
-            return true;
-        }
-
-        private bool scanForSidePathRigth(Image<Rgb, byte> img, int scanHeigth, int minSegmentLength)
-        {
-
-            int sameColorPixels = 0;
-
-            Rgb pathColor = img[scanHeigth, 0];
-
-
-            //the path we are intereted in should start at the rigth side of the image, if the path would lie in the center of the image the normal side image eval algo would have detected that path
-            for (int i = 0; i < img.Width; i++)
-            {
-                //check whether the pixel still is of the color we are looking for
-                if (pathColor.Blue == img[scanHeigth, i].Blue && pathColor.Red == img[scanHeigth, i].Red && pathColor.Green == img[scanHeigth, i].Green)
-                {
-                    sameColorPixels++;
-                }
-                else
-                {
-                    //a different color was scanned, check if we saw enough pixel
-                    if (sameColorPixels >= minSegmentLength)
-                    {
-                        return true;
-                    }
-                    else
-                    {
-                        return false;
-                    }
-                }
-
-            }
-
-            //realisticly this should never be reached
-            return false;
-        }
-
-
-        private bool scanForSidePathLeft(Image<Rgb, byte> img, int scanHeigth, int minSegmentLength)
-        {
-
-            int sameColorPixels = 0;
-
-            Rgb pathColor = img[scanHeigth, img.Width - 1];
-
-
-            //the path we are intereted in should start at the rigth side of the image, if the path would lie in the center of the image the normal side image eval algo would have detected that path
-            for (int i = img.Width - 1; i > 0; i--)
-            {
-                //check whether the pixel still is of the color we are looking for
-                if (pathColor.Blue == img[scanHeigth, i].Blue && pathColor.Red == img[scanHeigth, i].Red && pathColor.Green == img[scanHeigth, i].Green)
-                {
-                    sameColorPixels++;
-                }
-                else
-                {
-                    //a different color was scanned, check if we saw enough pixel
-                    if (sameColorPixels >= minSegmentLength)
-                    {
-                        return true;
-                    }
-                    else
-                    {
-                        return false;
-                    }
-                }
-
-            }
-
-            //realisticly this should never be reached
-            return false;
-        }
+       
 
 
         private void moveBasedOnImage()
         {
             Logger.Instance.LogInfo("----------------------------------");
 
-            //save the values from the last interation for comparison
-            lastFrontStart = lineStartFront;
-            lastFrontEnd = lineEndFront;
+            //save the values from the last interation for comparison         
 
             int minMoveDistanceTillNextTurn = 10;
-
             bool frontOK = false;
 
             int lookAheadDistance = 10;
@@ -630,14 +344,14 @@ namespace Frame.VrAibo
 
             int scanHeigth = GLab.VirtualAibo.VrAibo.SurfaceHeight - 10;
 
-            scanForPath(front, scanHeigth, out lineStartFront, out lineEndFront);
+            ImageOperations.scanForPath(front, scanHeigth, out lineStartFront, out lineEndFront,pathMinThreshold);
 
             //check if the return values suggest that ther is a path
             if (lineStartFront != -1 && lineEndFront != -1)
             {
                 LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(lineStartFront, scanHeigth), new System.Drawing.Point(lineEndFront, scanHeigth));
 
-                frontOK = checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance);
+                frontOK = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance);
 
                 front.Draw(ls, new Rgb(0, 0, 255), 2);
             }
@@ -648,12 +362,12 @@ namespace Frame.VrAibo
 
             bool LeftOK = false;
 
-            bool pathFound = scanForPath(left, scanHeigth, out lineStartLeft, out lineEndLeft);
+            bool pathFound = ImageOperations.scanForPath(left, scanHeigth, out lineStartLeft, out lineEndLeft,pathMinThreshold);
 
             //check if the return values suggest that ther is a path
-            if (pathFound && lineStartLeft != -1 && lineEndLeft != -1 && isSidePath(lineStartLeft, lineEndLeft, left.Width))
+            if (pathFound && lineStartLeft != -1 && lineEndLeft != -1 && ImageOperations.isSidePath(lineStartLeft, lineEndLeft, left.Width))
             {
-                LeftOK = checkIfvalidPath(lineStartLeft, lineEndLeft, scanHeigth, left, 20);
+                LeftOK = ImageOperations.checkIfvalidPath(lineStartLeft, lineEndLeft, scanHeigth, left, 20);
 
                 LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(lineStartLeft, scanHeigth), new System.Drawing.Point(lineEndLeft, scanHeigth));
                 left.Draw(ls, new Rgb(0, 0, 255), 2);
@@ -666,14 +380,14 @@ namespace Frame.VrAibo
             bool rigthOK = false;
 
 
-            pathFound = scanForPath(rigth, scanHeigth, out lineStartRigth, out lineEndRigth);
+            pathFound = ImageOperations.scanForPath(rigth, scanHeigth, out lineStartRigth, out lineEndRigth,pathMinThreshold);
 
 
 
             //check if the return values suggest that ther is a path
-            if (pathFound && lineStartRigth != -1 && lineEndRigth != -1 && isSidePath(lineStartRigth, lineEndRigth, rigth.Width))
+            if (pathFound && lineStartRigth != -1 && lineEndRigth != -1 && ImageOperations.isSidePath(lineStartRigth, lineEndRigth, rigth.Width))
             {
-                rigthOK = checkIfvalidPath(lineStartRigth, lineEndRigth, scanHeigth, rigth, 20);
+                rigthOK = ImageOperations.checkIfvalidPath(lineStartRigth, lineEndRigth, scanHeigth, rigth, 20);
                 LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(lineStartRigth, scanHeigth), new System.Drawing.Point(lineEndRigth, scanHeigth));
                 rigth.Draw(ls, new Rgb(0, 0, 255), 2);
             }
@@ -766,13 +480,8 @@ namespace Frame.VrAibo
                         MovePair mp = new MovePair();
                         mp.movement = AiboSpeed;
 
-                        int sDiff = Math.Abs(lastFrontStart - lineStartFront);
-                        int eDiff = Math.Abs(lastFrontEnd - lineEndFront);
-
                         if (phi != 0.0f)
                         {
-                            // mc.turnFromPath = phi / 2;
-                            //mc.RequestRotation(phi / 2);
                             mp.turn = phi / 2;
                         }
                         else
@@ -856,8 +565,8 @@ namespace Frame.VrAibo
                     int sideScanHeigth = GLab.VirtualAibo.VrAibo.SurfaceHeight - 20;
 
 
-                    bool leftScanResult = scanForSidePathLeft(left, sideScanHeigth, 10);
-                    bool rigthScanResult = scanForSidePathRigth(rigth, sideScanHeigth, 10);
+                    bool leftScanResult = ImageOperations.scanForSidePathLeft(left, sideScanHeigth, 10);
+                    bool rigthScanResult = ImageOperations.scanForSidePathRigth(rigth, sideScanHeigth, 10);
 
                     if (leftScanResult && !rigthScanResult)
                     {
@@ -889,230 +598,8 @@ namespace Frame.VrAibo
 
             return;
 
-        }
-
-        private double getDistance(Image<Gray, byte> disp, Image<Gray, byte> center, FrmImage dbImage)
-        {
-            Image<Gray, byte> distImg = center.Copy();
-
-            int heigth = 256 / 2;
-            byte distThres = 255 - 30;
-
-            double avrgDist = 0;
-            int valuesAdded = 0;
-
-            int sideSpacing = 80;
-
-            for (int i = sideSpacing; i < distImg.Width - sideSpacing; i++)
-            {
-                //get the distance
-                //byte distance = disp.Data[heigth, i, 0];
-
-                double distance = _stereoVision.GetDepth(i, heigth);
-
-                avrgDist += distance;
-                valuesAdded++;
-
-
-                //Logger.Instance.LogInfo("d: "+distance);
-                if (distance <= distThres)
-                {
-                    distImg[heigth, i] = new Gray(255);
-                }
-                else
-                {
-                    distImg[heigth, i] = new Gray(0);
-                }
-
-
-            }
-
-            dbImage.SetImage(distImg);
-            return avrgDist / valuesAdded;
-        }
-
-
-        private double getDistance(Image<Gray, short> disp, Image<Rgb, byte> center, FrmImage dbImage)
-        {
-            Image<Rgb, byte> distImg = center.Copy();
-
-            int heigth = 256 / 2;
-            short distThres = 255 - 30;
-
-            double avrgDist = 0;
-            int valuesAdded = 0;
-
-            int sideSpacing = 80;
-
-            for (int i = sideSpacing; i < distImg.Width - sideSpacing; i++)
-            {
-                //get the distance
-                //short distance = disp.Data[heigth, i, 0];
-
-                double distance = _stereoVision.GetDepth(i, heigth);
-
-                avrgDist += distance;
-                valuesAdded++;
-
-
-                //Logger.Instance.LogInfo("d: "+distance);
-                if (distance <= distThres)
-                {
-                    distImg[heigth, i] = new Rgb(255, 0, 0);
-                }
-                else
-                {
-                    distImg[heigth, i] = new Rgb(0, 255, 0);
-                }
-
-
-            }
-
-            dbImage.SetImage(distImg);
-            return avrgDist / valuesAdded;
-        }
-
-
-        private int getSegments(Image<Gray, short> disp, Image<Rgb, byte> center, FrmImage dbImage, out List<Segment> objectSegments, short distThres, int heigth)
-        {
-            Image<Rgb, byte> distImg = center.Copy();
-
-
-            int avrgDist = 0;
-            int valuesAdded = 0;
-
-            objectSegments = new List<Segment>();
-            int newSegemntStart = 0;
-
-            bool onObject = distThres < disp.Data[heigth, 0, 0];
-
-
-
-            for (int i = 0; i < distImg.Width; i++)
-            {
-                //get the distance
-                short distance = disp.Data[heigth, i, 0];
-
-
-
-
-                // double distance = _stereoVision.GetDepth(i, heigth);
-
-                avrgDist += distance;
-                valuesAdded++;
-
-
-                bool isCurrentPixelObject = distThres < distance;
-
-
-                //check if the current pixel still the same as the segment we are currently tracking
-                if (isCurrentPixelObject == onObject)
-                {
-                    //in this case do nothing
-                }
-                else
-                {
-                    //change detected
-                    objectSegments.Add(new Segment(newSegemntStart, i - 1, onObject));
-                    newSegemntStart = i;
-                    onObject = isCurrentPixelObject;
-
-                }
-
-
-                //print to the db image
-                if (isCurrentPixelObject)
-                {
-                    //distImg[heigth, i] = new Rgb(255, 0, 0);
-                }
-                else
-                {
-                    //distImg[heigth, i] = new Rgb(0, 255, 0);
-                }
-
-
-                //Logger.Instance.LogInfo("d: "+distance);
-                /*   if (distance <= distThres)
-                   {
-
-                       if (!trackingFreeSegment)
-                       {
-                           //we found a new segment
-                           newSegemntStart = i;
-                           trackingFreeSegment = true;
-                       }
-
-                       distImg[heigth, i] = new Rgb(255, 0, 0);
-                   }
-                   else
-                   {
-                       distImg[heigth, i] = new Rgb(0, 255, 0);
-                       if (trackingFreeSegment)
-                       {
-                           objectSegments.Add(new Segment(newSegemntStart, i));
-                           trackingFreeSegment = false;
-                       }
-
-                   }*/
-
-
-            }
-
-            //dont forget to add the last segment
-            objectSegments.Add(new Segment(newSegemntStart, distImg.Width, onObject));
-
-            dbImage.SetImage(distImg);
-            return avrgDist / valuesAdded;
-        }
-
-        private void maskMultipleColors(Image<Rgb, byte> src, out Image<Gray, byte> dest, List<Hsv> colorsToMask, int hueRange, int strucSize)
-        {
-            Image<Hsv, byte> hsvFront = new Image<Hsv, byte>(src.Size);
-            CvInvoke.cvCvtColor(src, hsvFront, Emgu.CV.CvEnum.COLOR_CONVERSION.RGB2HSV);
-
-            if (colorsToMask.Count > 0)
-            {
-                getMask(src, colorsToMask[0], out dest, hueRange, strucSize);
-            }
-            else
-            {
-                //if the list is empty
-                dest = new Image<Gray, byte>(src.Width, src.Height, new Gray(0));
-
-            }
-
-            for (int i = 1; i < colorsToMask.Count; i++)
-            {
-                Image<Gray, byte> mask2;
-                getMask(src, colorsToMask[i], out mask2, hueRange, strucSize);
-
-                leftWindow.SetImage(mask2);
-
-                //add the two mask together
-                dest = dest.AddWeighted(mask2, 1, 1, 0);
-            }
-        }
-
-        private void getMask(Image<Hsv, byte> img, Hsv colorToFilter, out Image<Gray, byte> mask, int hueRange, int strucSize)
-        {
-            mask = img.InRange(new Hsv(colorToFilter.Hue - hueRange / 2, 0, 0), new Hsv(colorToFilter.Hue + hueRange / 2, 255, 255));
-
-            StructuringElementEx se = new StructuringElementEx(10, 10, 5, 5, Emgu.CV.CvEnum.CV_ELEMENT_SHAPE.CV_SHAPE_RECT);
-
-            CvInvoke.cvErode(mask, mask, se, strucSize);
-            CvInvoke.cvDilate(mask, mask, se, strucSize);
-
-        }
-
-        private void getMask(Image<Rgb, byte> img, Hsv colorToFilter, out Image<Gray, byte> mask, int hueRange, int strucSize)
-        {
-            Image<Hsv, byte> hsvFront = new Image<Hsv, byte>(img.Size);
-
-            CvInvoke.cvCvtColor(img, hsvFront, Emgu.CV.CvEnum.COLOR_CONVERSION.RGB2HSV);
-
-            getMask(hsvFront, colorToFilter, out mask, hueRange, strucSize);
-
-        }
+        }    
+       
 
         private void moveAroundObject()
         {
@@ -1129,26 +616,19 @@ namespace Frame.VrAibo
             int hueRange = 10;
             int strctSize = 2;
 
-            /* getMask(front, new Hsv(19, 0, 0),out maskFront,hueRange,strctSize);
-             getMask(left, new Hsv(19, 0, 0),out maskLeft, hueRange, strctSize);
-             getMask(rigth, new Hsv(19, 0, 0),out maskRight, hueRange, strctSize);*/
-
             //mask the objects
 
             List<Hsv> colorsToMask = om.getColorsOfCloseObstacals(nodeNavigator.CurrentRobotPosition, 5);
 
-
-
-            maskMultipleColors(front, out maskFront, colorsToMask, hueRange, strctSize);
-            maskMultipleColors(left, out maskLeft, colorsToMask, hueRange, strctSize);
-            maskMultipleColors(rigth, out maskRight, colorsToMask, hueRange, strctSize);
+            ImageOperations.maskMultipleColors(front, out maskFront, colorsToMask, hueRange, strctSize);
+            ImageOperations.maskMultipleColors(left, out maskLeft, colorsToMask, hueRange, strctSize);
+            ImageOperations.maskMultipleColors(rigth, out maskRight, colorsToMask, hueRange, strctSize);
 
 
             //check the fron image
-            bool frontStatus = objectInside(maskFront, maskFront.Height / 2);
-            bool leftStatus = objectInside(maskLeft, maskLeft.Height / 2);
-            bool rigthStatus = objectInside(maskRight, maskRight.Height / 2);
-
+            bool frontStatus = ImageOperations.objectInside(maskFront, maskFront.Height / 2);
+            bool leftStatus = ImageOperations.objectInside(maskLeft, maskLeft.Height / 2);
+            bool rigthStatus = ImageOperations.objectInside(maskRight, maskRight.Height / 2);
 
 
             //get the direction vector to the target
@@ -1261,36 +741,7 @@ namespace Frame.VrAibo
 
         }
 
-        public void filterViaHSV(Image<Hsv, byte> img, Hsv colorToFilter, out Image<Gray, byte> mask)
-        {
-
-            //CvInvoke.cvCvtColor(img, hsvImage, Emgu.CV.CvEnum.COLOR_CONVERSION.RGB2HSV);
-
-            //get a probe of the color we are intersted in
-
-            Hsv hsv_min = new Hsv(colorToFilter.Hue, 0, 0);
-            Hsv hsv_max = new Hsv(colorToFilter.Hue, 255, 255);
-
-
-            mask = img.InRange(hsv_min, hsv_max);
-
-            processedDB.SetImage(mask);
-
-
-        }
-
-        private bool objectInside(Image<Gray, byte> mask, int scanHeigth)
-        {
-            for (int i = 0; i < mask.Width; i++)
-            {
-                bool isOnObject = mask[scanHeigth, i].Intensity > 0;
-                if (isOnObject)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
+       
 
         private hsvEvalReturn evalMask(Image<Gray, byte> mask, int scanHeigth, out int objectEnd, out bool objectToLeft)
         {
@@ -1362,12 +813,7 @@ namespace Frame.VrAibo
                                 end = objectSegments[j].end;
                             }
                         }
-
-
-
                     }
-
-
                     objectSegmentsTmp.Add(new Segment(start, end, true));
                 }
             }
@@ -1391,7 +837,7 @@ namespace Frame.VrAibo
 
             int heigth = 256 / 2;
 
-            int avrgDist = getSegments(disp, center, distanceDB, out objectSegments, distThres, heigth);
+            int avrgDist = ImageOperations.getSegments(disp, center, distanceDB, out objectSegments, distThres, heigth);
 
             int segmentMergeThreshold = 10;
 
@@ -1449,90 +895,6 @@ namespace Frame.VrAibo
                 }
 
             }
-
-            /*Logger.Instance.LogInfo("---------------");
-
-
-            if (avrgDist > 190)
-            {
-                mc.astimatedDistanceToObject = 5;
-
-                objectDetected = true;
-
-                //get the first segment that is an object, make sure there is one
-                if (objectSegments.Count > 1)
-                {
-                  //get the center of that segment
-                    int c = (objectSegments[0].end - objectSegments[0].start) / 2 + objectSegments[0].start;
-                    //get the probe
-                    colorfDetectedObject = hsvImage[heigth, c];
-
-                }
-
-            }
-
-            //check if on object was detected at all
-            if (objectDetected)
-            {
-                Image<Gray, byte> mask = new Image<Gray, byte>(center.Size);
-
-                colorfDetectedObject = hsvImage[256 / 2, 256 / 2];
-
-                filterViaHSV(hsvImage, colorfDetectedObject, out mask);
-
-                int objectStart = 0;
-                bool objectIsToTheLeft = true;
-
-                hsvEvalReturn r = evalMask(mask, 256 / 2, out objectStart, out objectIsToTheLeft);
-
-                if (r == hsvEvalReturn.No_Object)
-                {
-                    //something is wrong if we get here...
-                }
-                else if (r == hsvEvalReturn.Object_no_border)
-                {
-                    //the entire sceen is filled with the object
-                    //mc.objectDetectionRequstedMovement = true;
-                    //mc.turnFromObjectDetection = 45;
-                }
-                else
-                {
-                    //object with border
-                    //mc.objectDetectionRequstedMovement = true;
-
-                    int objectEnd;
-                    if (objectIsToTheLeft)
-                    {
-                        objectEnd = center.Width;
-                    }
-                    else
-                    {
-                        objectEnd = 0;
-                    }
-
-                    int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (objectEnd - ((objectEnd - objectStart) / 2));
-                    float phi = Alpha * diffX;
-
-                    //mc.turnFromObjectDetection = phi;
-
-
-                }
-
-
-                stuff.SetImage(disp);
-            }*/
-
-            //Image<Gray, short> binary = disp.Copy();
-
-            //CvInvoke.cvThreshold(disp, binary, 180, 255, Emgu.CV.CvEnum.THRESH.CV_THRESH_TOZERO_INV & Emgu.CV.CvEnum.THRESH.CV_THRESH_BINARY);
-
-            //processedDB.SetImage(binary);
-
-            //Logger.Instance.LogInfo("Distance to target "+avrgDist);
-
-
-            //int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (objectSegments[0].end - ((objectSegments[0].end - 0) / 2));
-            //float phi = Alpha * diffX;
         }
 
         private bool TrackLine(out float turn)
@@ -1590,40 +952,8 @@ namespace Frame.VrAibo
             // reset coi
             CvInvoke.cvSetImageCOI(center.Ptr, 0);
             CvInvoke.cvSetImageCOI(channelRed.Ptr, 0);
-
-
-            /* if (moveBack)
-             {
-
-
-                 if (movePairs.Count == 0)
-                 {
-
-                 }else
-
-                 if (movePairs.Count == 1)
-                 {
-                     moveBack = false;
-                     moveBackViaRecordedPath();
-                     justReturnedFromTrackBack = true;
-
-                     if (!movePairs[0].left && !movePairs[0].rigth && !movePairs[0].froont)
-                     {
-
-
-                         movePairs.RemoveAt(0);
-                     }
-
-                 }
-                 else
-                 {
-                     moveBackViaRecordedPath();
-                 }
-
-
-             }
-             else*/
-            {
+        
+            
                 if (picsTaken == 0)
                 {
 
@@ -1639,12 +969,6 @@ namespace Frame.VrAibo
                     picsTaken++;
 
                     stuff.SetImage(disp);
-
-                    //_frmImage.SetImage(disp);
-
-
-
-
                 }
                 else if (picsTaken == 1)
                 {
@@ -1665,28 +989,6 @@ namespace Frame.VrAibo
 
                     moveAroundObject();
 
-
-                    //Logger.Instance.LogInfo("At pos " + _vrAibo.Position);
-
-                    //Vector2 currentHeading = calcMovementVector(90, new Vector2(0, -1));
-
-                    //Logger.Instance.LogInfo("Heading " + currentHeading);
-
-                    /*Logger.Instance.LogInfo("At pos "+_vrAibo.Position);
-
-                    double angle = calcAngleBeteenVectors(new Vector2(0,-1),new Vector2(3,-3));
-                    Logger.Instance.LogInfo("angle: " + angle);
-
-                    double angle2 = calcAngleBeteenVectors(new Vector2(0, -1), new Vector2(-3, 3));
-                    Logger.Instance.LogInfo("angle: " + angle2);*/
-
-                    //frontWindow.SetImage(front);
-                    //leftWindow.SetImage(left);
-                    //rigthWindow.SetImage(rigth);
-
-
-                    //Logger.Instance.LogInfo("distance to object "+mc.astimatedDistanceToObject);
-
                     float executedMovement;
                     float executedRotation;
 
@@ -1694,70 +996,7 @@ namespace Frame.VrAibo
                     //nodeNavigator.addMovement(executedMovement, executedRotation);
                 }
 
-            }
-
-
-
-
             _frmEyeCenter.SetImage(channelRed);
-
-            //Logger.Instance.LogInfo("At pos " + _vrAibo.Position);
-
-
-            //int avrgDist = getDistance(disp, center, distanceDB);
-
-            /* Image<Gray, byte> mask = new Image<Gray, byte>(center.Size);
-             Image<Hsv, byte> hsvImage = new Image<Hsv, byte>(center.Size);
-             CvInvoke.cvCvtColor(center, hsvImage, Emgu.CV.CvEnum.COLOR_CONVERSION.RGB2HSV);
-             Hsv colorToFilter = hsvImage[256 / 2, 256 / 2];
-
-             filterViaHSV(hsvImage, colorToFilter,out mask);
-
-             int objectStart =0;
-             bool objectIsToTheLeft = true;
-
-             hsvEvalReturn r = evalMask(mask, 256 / 2, out objectStart, out objectIsToTheLeft);
-
-
-             Logger.Instance.LogInfo("Eval says");
-             Logger.Instance.LogInfo("R value " + r);
-             Logger.Instance.LogInfo("Object to the left " + objectIsToTheLeft);
-
-             //Logger.Instance.LogInfo("At pos " + _vrAibo.Position);
-
-             List<Segment> objectSegments = new List<Segment>();
-
-             int avrgDist = getSegments(disp, center, distanceDB, out objectSegments);
-
-             Image<Gray, short> binary = disp.Copy();
-
-             CvInvoke.cvThreshold(disp, binary, 180, 255, Emgu.CV.CvEnum.THRESH.CV_THRESH_TOZERO_INV & Emgu.CV.CvEnum.THRESH.CV_THRESH_BINARY);*()
-
-             //processedDB.SetImage(binary);
-
-
-             //int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (objectSegments[0].end - ((objectSegments[0].end - 0) / 2));
-             //float phi = Alpha * diffX;
-
-
-
-                 /*   if (phi != 0.0f)
-                    {
-                        _vrAibo.Turn(phi);
-                    }*/
-
-
-
-
-            //double avrgDist = getDistance(tmpRefImg, tmpRefImg, distanceDB);
-
-
-
-
-
-
-
-            //------------------------
 
             turn = 0; // Replace this with your calculated turn value
 
