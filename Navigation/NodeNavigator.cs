@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using Microsoft.Xna.Framework;
 
-namespace Frame.VrAibo.Node
+namespace Frame.VrAibo.Navigation
 {
     class NodeNavigator
     {

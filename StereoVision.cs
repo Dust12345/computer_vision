@@ -12,7 +12,7 @@ using GLab.Core.PluginInterfaces;
 using GLab.VirtualAibo;
 using GLab.VirtualAibo.Forms;
 using Microsoft.Xna.Framework;
-using Frame.VrAibo.Node;
+using Frame.VrAibo.Navigation;
 using Frame.VrAibo.Movement;
 
 #endregion

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using GLab.StereoVision;
 using GLab.Core;
-using Frame.VrAibo.Node;
+using Frame.VrAibo.Navigation;
 
 namespace Frame.VrAibo.Movement
 {
