@@ -891,32 +891,6 @@ namespace Frame.VrAibo
 
         }
 
-
-        private void moveBackViaRecordedPath()
-        {
-            //get the last element
-            MovePair mp = movePairs[movePairs.Count - 1];
-
-            //apply the turn in reverse and move
-
-            if (movePairs.Count - 1 == 0)
-            {
-                movementConsenter.RequestMovement(mp.movement);
-                movementConsenter.RequestRotation(mp.turn);
-            }
-            else
-            {
-                movementConsenter.RequestMovement(mp.movement);
-                movementConsenter.RequestRotation(mp.turn * -1);
-            }
-
-            if (movePairs.Count > 1)
-            {
-                movePairs.RemoveAt(movePairs.Count - 1);
-            }
-
-        }
-
         private double getDistance(Image<Gray, byte> disp, Image<Gray, byte> center, FrmImage dbImage)
         {
             Image<Gray, byte> distImg = center.Copy();

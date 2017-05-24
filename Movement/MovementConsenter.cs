@@ -11,7 +11,7 @@ namespace Frame.VrAibo.Movement
     class MovementConsenter
     {
         private GLab.VirtualAibo.VrAibo _robot;
-       
+
         //temporary
         public double astimatedDistanceToObject;
 
@@ -48,7 +48,7 @@ namespace Frame.VrAibo.Movement
 
         private bool HandleMovement(float moveAmount, float turnAmount)
         {
-            if(_currentLimiter.Done)
+            if (_currentLimiter.Done)
             {
                 _currentLimiter = new MovementLimiter(_robot, new MovementStep(moveAmount, turnAmount));
             }
@@ -69,17 +69,16 @@ namespace Frame.VrAibo.Movement
 
         public void pathDetectionRequest(float movement, double rotation)
         {
-          
-              pathRequstedMovement = true;
-              movementFromPath = movement;
-              turnFromPath = (float)rotation;
+            pathRequstedMovement = true;
+            movementFromPath = movement;
+            turnFromPath = (float)rotation;
         }
 
         public void objectDetectionRequest(float movement, double rotation)
         {
-              objectDetectionRequstedMovement = true;
-              moveFromObjectDetection = movement;
-              turnFromObjectDetection = (float)rotation;
+            objectDetectionRequstedMovement = true;
+            moveFromObjectDetection = movement;
+            turnFromObjectDetection = (float)rotation;
         }
 
         public bool busy()
@@ -92,7 +91,7 @@ namespace Frame.VrAibo.Movement
             if (astimatedDistanceToObject == -1)
             {
                 //no objecz detected, just move
-                HandleMovement(movementFromPath, turnFromPath);             
+                HandleMovement(movementFromPath, turnFromPath);
                 executedMovement = movementFromPath;
                 executedRotation = turnFromPath;
                 return;
@@ -132,7 +131,7 @@ namespace Frame.VrAibo.Movement
             MovementHistory history = _navigator.CurrentMovementHistory;
 
             if (history.Count <= 0)
-            { 
+            {
                 returnToLastNode = false;
 
                 // TODO: useless last execution path for empty movement history
@@ -154,7 +153,7 @@ namespace Frame.VrAibo.Movement
         {
             Logger.Instance.LogInfo("handle both");
 
-         
+
             //check if both movement request point in the same direction, if so we can just move as the path algo suggests
 
             double angleDiff = Math.Abs(turnFromPath - turnFromObjectDetection);
@@ -201,18 +200,18 @@ namespace Frame.VrAibo.Movement
 #endif
         }
 
-        public void execute(out float executedMovement,out float executedRotation)
+        public void execute(out float executedMovement, out float executedRotation)
         {
             Logger.Instance.LogInfo("Exectute called");
 
             //check the simple cases, where only one requested movement
-            if(returnToLastNode)
+            if (returnToLastNode)
             {
                 handleReturnToLastNode(out executedMovement, out executedRotation);
             }
             else if (pathRequstedMovement && !objectDetectionRequstedMovement)
             {
-                handleSimplePathMovement(out executedMovement,out executedRotation);
+                handleSimplePathMovement(out executedMovement, out executedRotation);
                 _navigator.addMovement(executedMovement, executedRotation);
             }
             else if (!pathRequstedMovement && objectDetectionRequstedMovement)

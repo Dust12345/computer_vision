@@ -8,7 +8,7 @@ namespace Frame.VrAibo.Movement
 {
     class MovementLimiter
     {
-        public static float MaxMovementPerFrame = 0.5f;
+        public static float MaxMovementPerFrame = 0.3f; // TODO: hardcoded, is defined in AiboSpeed in StereoVision
         public static float MaxRotationPerFrame = 1.0f;
 
         private GLab.VirtualAibo.VrAibo _robot;
@@ -25,6 +25,7 @@ namespace Frame.VrAibo.Movement
 
         private bool checkAndUpdateDone()
         {
+            // TODO: float comparison, need some sanity check
             if (_step.Movement == 0.0f &&
                 _step.Rotation == 0.0f)
             {
