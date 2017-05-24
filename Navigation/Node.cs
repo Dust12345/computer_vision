@@ -8,7 +8,7 @@ namespace Frame.VrAibo.Navigation
 {
     class Node
     {
-        public static Node HeadNode { get; private set; }
+        public static Node RootNode { get; private set; }
 
         public Vector2 Coordinate { get; private set; }
         public MovementHistory MovementHistory { get; private set; }
@@ -25,13 +25,13 @@ namespace Frame.VrAibo.Navigation
 
             if(setAsRoot)
             {
-                if(HeadNode != null)
+                if(RootNode != null)
                 {
-                    throw new InvalidOperationException("A head node is already defined!");
+                    throw new InvalidOperationException("A root node is already defined!");
                 }
 
                 _isRootNode = true;
-                HeadNode = this;
+                RootNode = this;
             }
         }
 
