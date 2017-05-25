@@ -67,10 +67,12 @@ namespace Frame.VrAibo
         private GLab.StereoVision.StereoVision _stereoVision;
         private double lastDepth = 0;
 
-
+        bool disableSideMovement = true;
 
         Hsv colorfDetectedObject = new Hsv();
         bool objectDetected = false;
+
+        int frontHeadPos = 0;
 
         MovementConsenter movementConsenter;
 
@@ -327,7 +329,34 @@ namespace Frame.VrAibo
             }
         }
 
-       
+
+       /* public bool isNotObject(Image<Rgb, byte> img, Rgb pathColor, int x, int y)
+        {
+
+            Logger.Instance.LogInfo("method called");
+            //scan upwards, if the path ends before the horizon is reached it is a path
+            int horizonThreshold = (img.Height / 2) - 10;
+
+            for (int i = y; i > horizonThreshold; i--)
+            {
+                Logger.Instance.LogInfo("Did an iteration");
+
+                if (pathColor.Blue == img[i, x].Blue && pathColor.Red == img[i, x].Red && pathColor.Green == img[i, x].Green)
+                {
+                    img[i, x] = new Rgb(0, 255, 0);
+                }
+                else
+                {
+                    Logger.Instance.LogInfo("returned here");
+                    processedDB.SetImage(img);
+                    return true;
+                }
+            }
+
+            Logger.Instance.LogInfo("returned in false");
+            processedDB.SetImage(img);
+            return false;
+        }*/
 
 
         private void moveBasedOnImage()
@@ -346,9 +375,18 @@ namespace Frame.VrAibo
 
             ImageOperations.scanForPath(front, scanHeigth, out lineStartFront, out lineEndFront,pathMinThreshold);
 
+           int center = (lineEndFront - ((lineEndFront - lineStartFront) / 2));          
+
+            Rgb referenceColor = front[scanHeigth, center];
+
+           // isNotObject(front, referenceColor, center, scanHeigth);
+
+
             //check if the return values suggest that ther is a path
-            if (lineStartFront != -1 && lineEndFront != -1)
+            if (lineStartFront != -1 && lineEndFront != -1 &&  lineStartFront != 255)
             {
+                
+
                 LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(lineStartFront, scanHeigth), new System.Drawing.Point(lineEndFront, scanHeigth));
 
                 frontOK = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance);
@@ -392,12 +430,18 @@ namespace Frame.VrAibo
                 rigth.Draw(ls, new Rgb(0, 0, 255), 2);
             }
 
+            if (disableSideMovement)
+            {
+                rigthOK = false;
+                LeftOK = false;
+            }
+           
 
             //check we returned to a previusly visited intersection
             if (justReturnedFromTrackBack)
             {
 
-                Logger.Instance.LogInfo("Just returned");
+                //Logger.Instance.LogInfo("Just returned");
 
                 justReturnedFromTrackBack = false;
                 //check wether the intersection has a path we did not visit yet
@@ -460,7 +504,7 @@ namespace Frame.VrAibo
                 //check of the front is clear
                 if (frontOK)
                 {
-                    // Logger.Instance.LogInfo("Front ok");
+                     Logger.Instance.LogInfo("Front ok");
                     //Logger.Instance.LogInfo("Status R: "+rigthOK);
                     //Logger.Instance.LogInfo("Min Status: " + (distMovedTillLastTurn < minMoveDistanceTillNextTurn));
                     //Logger.Instance.LogInfo("Moved: " + distMovedTillLastTurn + " must move: " + minMoveDistanceTillNextTurn);
@@ -552,7 +596,7 @@ namespace Frame.VrAibo
                 }
                 else
                 {
-                    Logger.Instance.LogInfo("FRONT NOT OK");
+                    //Logger.Instance.LogInfo("FRONT NOT OK");
                     //movementConsenter.RequestReturnToLastNode();
 
                     //front not ok
@@ -567,6 +611,14 @@ namespace Frame.VrAibo
 
                     bool leftScanResult = ImageOperations.scanForSidePathLeft(left, sideScanHeigth, 10);
                     bool rigthScanResult = ImageOperations.scanForSidePathRigth(rigth, sideScanHeigth, 10);
+
+                    if (disableSideMovement)
+                    {
+                        leftScanResult = false;
+                        rigthScanResult = false;
+                    }
+
+                   
 
                     if (leftScanResult && !rigthScanResult)
                     {
@@ -724,7 +776,7 @@ namespace Frame.VrAibo
                     }
                     else
                     {
-                        Logger.Instance.LogInfo("R is free");
+                        //Logger.Instance.LogInfo("R is free");
                         //rigth ok
                         //_vrAibo.Turn(-90);
                         movementConsenter.objectDetectionRequest(0, -90);
@@ -737,16 +789,117 @@ namespace Frame.VrAibo
             leftWindow.SetImage(maskLeft);
             rigthWindow.SetImage(maskRight);
 
-            Logger.Instance.LogInfo("-------------------------");
+            //Logger.Instance.LogInfo("-------------------------");
 
         }
 
-       
+        private void moveAroundObject2()
+        {
+            Image<Gray, byte> maskFront = new Image<Gray, byte>(front.Size);
+            Image<Gray, byte> maskLeft = new Image<Gray, byte>(left.Size);
+            Image<Gray, byte> maskRight = new Image<Gray, byte>(rigth.Size);
+
+            //params
+            int hueRange = 10;
+            int strctSize = 5;
+
+            int scanHeigth = front.Height / 2;
+
+
+            //mask the objects
+
+            List<Hsv> colorsToMask = om.getColorsOfCloseObstacals(nodeNavigator.CurrentRobotPosition, 8);
+
+            ImageOperations.maskMultipleColors(front, out maskFront, colorsToMask, hueRange, strctSize);
+            ImageOperations.maskMultipleColors(left, out maskLeft, colorsToMask, hueRange, strctSize);
+            ImageOperations.maskMultipleColors(rigth, out maskRight, colorsToMask, hueRange, strctSize);
+
+            int objectEnd = 0;
+            bool objectToLeft;
+
+            hsvEvalReturn frontStatus = evalMask(maskFront, scanHeigth, out objectEnd, out objectToLeft);
+
+            int objectEndR = 0;
+            bool objectToLeftR;
+
+            hsvEvalReturn rStatus = evalMask(maskRight, scanHeigth, out objectEndR, out objectToLeftR);
+
+
+            //hsvEvalReturn frontStatus = evalMask(maskFront, scanHeigth, out objectEnd, out objectToLeft);
+
+            Logger.Instance.LogInfo("Object status " + frontStatus);
+
+            if (frontStatus == hsvEvalReturn.No_Object)
+            {
+                //check if the sides are clear
+                if (rStatus == hsvEvalReturn.No_Object)
+                {
+                    //no object to the rigth
+
+                }
+                else
+                {
+                    //movementConsenter.objectDetectionRequest(AiboSpeed, 0);
+                }
+
+                //do nothing
+                //return;
+            }
+            else if (frontStatus == hsvEvalReturn.Object_no_border)
+            {
+                //with no border
+               // movementConsenter.objectDetectionRequest()
+                movementConsenter.objectDetectionRequest(0, 20);
+                //_vrAibo.Turn(20);
+            }
+            else
+            {
+                //object with border
+                if (objectToLeft)
+                {
+                    //object to the left
+                    int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 5) - objectEnd;
+                    float phi = Alpha * diffX;
+
+                    frontHeadPos = 15;
+
+                    Logger.Instance.LogInfo("Phi " + phi);
+
+                    //_vrAibo.Turn(phi);
+                    movementConsenter.objectDetectionRequest(AiboSpeed, phi);
+
+                }
+                else
+                {                 
+
+                    //object to the rigth
+                    int diffX = GLab.VirtualAibo.VrAibo.SurfaceWidth - (GLab.VirtualAibo.VrAibo.SurfaceWidth / 5) - objectEnd;
+                    float phi = Alpha * diffX;
+
+                    //Logger.Instance.LogInfo("Phi " + phi);
+
+
+
+                    frontHeadPos = -15;
+
+                    //_vrAibo.Turn(phi);
+                    movementConsenter.objectDetectionRequest(AiboSpeed, phi);
+                }
+
+            }
+
+            frontWindow.SetImage(maskFront);
+            leftWindow.SetImage(maskLeft);
+            rigthWindow.SetImage(maskRight);
+
+
+        }
 
         private hsvEvalReturn evalMask(Image<Gray, byte> mask, int scanHeigth, out int objectEnd, out bool objectToLeft)
         {
             //check if we start on free space or an object
             bool startOnObject = mask[scanHeigth, 0].Intensity > 0;
+
 
             for (int i = 0; i < mask.Width; i++)
             {
@@ -757,6 +910,8 @@ namespace Frame.VrAibo
                 {
                     //found a change
                     objectEnd = i;
+
+
 
                     //determine which side of the img the object was on
                     //since we started scanning from the left, this means starting in th object means the object is to the left
@@ -787,6 +942,7 @@ namespace Frame.VrAibo
                 return hsvEvalReturn.No_Object;
             }
         }
+       
 
         private void mergeSegments(ref List<Segment> objectSegments, int distanceThreshold)
         {
@@ -841,7 +997,7 @@ namespace Frame.VrAibo
 
             int segmentMergeThreshold = 10;
 
-            Logger.Instance.LogInfo("s " + objectSegments.Count);
+            //Logger.Instance.LogInfo("s " + objectSegments.Count);
 
             mergeSegments(ref objectSegments, segmentMergeThreshold);
 
@@ -934,6 +1090,8 @@ namespace Frame.VrAibo
             if (movementConsenter.busy())
             {
                 movementConsenter.update();
+                //turn = 0;
+                //return true;
             }
             //---------------------------
 
@@ -980,14 +1138,20 @@ namespace Frame.VrAibo
                 else if (picsTaken == 2)
                 {
                     //turn 90 left
-                    _vrAibo.HeadYaw = 0;
+                    _vrAibo.HeadYaw = frontHeadPos;
                     rigth = center.Copy();
                     picsTaken = 0;
                     //Logger.Instance.LogInfo("All Pics taken");
                     moveBasedOnImage();
                     doStereoVisionStuff(front, disp);
 
-                    moveAroundObject();
+                    //List<Hsv> colorsToMask = om.getColorsOfCloseObstacals(nodeNavigator.CurrentRobotPosition, 10);
+
+
+                    //movementConsenter.pathDetectionRequest(AiboSpeed, 0);
+                    //moveAroundObject();
+
+                    moveAroundObject2();
 
                     float executedMovement;
                     float executedRotation;

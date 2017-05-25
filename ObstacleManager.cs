@@ -69,19 +69,26 @@ namespace Frame.VrAibo
 			return  Math.Sqrt(Math.Pow((v1.X - v2.X), 2) + Math.Pow((v1.Y - v2.Y), 2));
 		}
 
+        //public List<Emgu.CV.Structure.Hsv> getColorsOfObjectsInView(Vector2 refPos,double distanceThreshold,)
 
 		public List<Emgu.CV.Structure.Hsv> getColorsOfCloseObstacals(Vector2 refPos, double distanceThreshold)
 		{
 			List<Emgu.CV.Structure.Hsv> colorsOfCloseObjects =new List<Emgu.CV.Structure.Hsv>();
 
+            //Logger.Instance.LogInfo("--------------------------");
 			for (int i = 0; i < knowObstacals.Count; i++)
 			{
 				double dist = calcDistance(refPos,knowObstacals[i].obstaclePos);
+
+                //Logger.Instance.LogInfo("dist to object: "+dist);
 				if (dist <= distanceThreshold)
 				{
 					colorsOfCloseObjects.Add(knowObstacals[i].obstacleColor);
 				}
 			}
+
+            //Logger.Instance.LogInfo("--------------------------");
+
 			return colorsOfCloseObjects;
 		}
 	}

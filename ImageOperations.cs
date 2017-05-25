@@ -201,6 +201,24 @@ namespace Frame.VrAibo
             return false;
         }
 
+        public static bool isNotObject(Image<Rgb, byte> img, Rgb pathColor, int x, int y)
+        {
+            int horizonThreshold = (img.Height / 2) - 10;
+
+            for (int i = y; i > horizonThreshold; i--)
+            {
+                if (pathColor.Blue == img[i, x].Blue && pathColor.Red == img[i, x].Red && pathColor.Green == img[i, x].Green)
+                {
+                    
+                }
+                else
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public static bool isSidePath(int lineStart, int lineEnd, int imgWidth)
         {
             //first case applies if the path is wider than the image
@@ -412,6 +430,13 @@ namespace Frame.VrAibo
             int center = (end - ((end - start) / 2));
 
             Rgb referenceColor = img[heigth, center];
+
+            bool isObj = isNotObject(img, referenceColor, center, heigth);
+
+            if (!isObj)
+            {
+                return false;
+            }
 
             for (int i = 0; i < scanDist; i++)
             {

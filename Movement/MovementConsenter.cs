@@ -6,6 +6,8 @@ using GLab.StereoVision;
 using GLab.Core;
 using Frame.VrAibo.Navigation;
 
+using Microsoft.Xna.Framework;
+
 namespace Frame.VrAibo.Movement
 {
     class MovementConsenter
@@ -30,6 +32,8 @@ namespace Frame.VrAibo.Movement
         private NodeNavigator _navigator;
         private MovementLimiter _currentLimiter;
 
+        private bool disableLimiter = true;
+
 
         public MovementConsenter(GLab.VirtualAibo.VrAibo robot, NodeNavigator navigator)
         {
@@ -48,6 +52,14 @@ namespace Frame.VrAibo.Movement
 
         private bool HandleMovement(float moveAmount, float turnAmount)
         {
+
+            if (disableLimiter)
+            {
+                _robot.Turn(turnAmount);
+                _robot.Walk(moveAmount);
+                return true;
+            }
+
             if (_currentLimiter.Done)
             {
                 _currentLimiter = new MovementLimiter(_robot, new MovementStep(moveAmount, turnAmount));
@@ -83,15 +95,22 @@ namespace Frame.VrAibo.Movement
 
         public bool busy()
         {
+            if (disableLimiter)
+            {
+                return false;
+            }
+
             return !_currentLimiter.Done;
         }
 
         private void handleSimplePathMovement(out float executedMovement, out float executedRotation)
         {
+
+            Logger.Instance.LogInfo("handle path");
             if (astimatedDistanceToObject == -1)
             {
                 //no objecz detected, just move
-                HandleMovement(movementFromPath, turnFromPath);
+                HandleMovement(movementFromPath, turnFromPath);                
                 executedMovement = movementFromPath;
                 executedRotation = turnFromPath;
                 return;
@@ -221,7 +240,7 @@ namespace Frame.VrAibo.Movement
             }
             else if (pathRequstedMovement && objectDetectionRequstedMovement)
             {
-                //Logger.Instance.LogInfo("SHOULD HANDLE BOTH");
+                
                 //executedMovement = 0;
                 //executedRotation = 0;
                 handleBothRequest(out executedMovement, out executedRotation);
@@ -229,9 +248,50 @@ namespace Frame.VrAibo.Movement
             }
             else
             {
+                //move to the last know point
+                Vector2 targetDest = new Vector2(0, 30);
+
+                Vector2 dirVct = VctOp.getVectorTotarget(_navigator.CurrentRobotPosition, targetDest);
                 Logger.Instance.LogInfo("NO INFO");
-                executedMovement = 0;
-                executedRotation = 0;
+
+                Logger.Instance.LogInfo("Dir vct " + dirVct);
+                Logger.Instance.LogInfo("R pos " + _navigator.CurrentRobotPosition);
+
+                Vector2 currentHeading = _navigator.getCurrentHeading();
+
+                double angle = Math.Abs(VctOp.calcAngleBeteenVectors(currentHeading, dirVct));
+                double angle2 = VctOp.calcAngleBeteenVectors(currentHeading, dirVct);
+                bool clockwise = VctOp.isClockwise(currentHeading, dirVct);
+
+
+                Logger.Instance.LogInfo("angle " + angle2);
+
+                angle2 = angle2 / 4;
+
+                
+
+                if (angle2 < 5 && angle2 > -5)
+                {
+                    HandleMovement(0.3f, (float)angle2);
+                    executedMovement = 0.3f;
+                    executedRotation = (float)angle2;
+
+                    _navigator.addMovement(executedMovement, executedRotation);
+                }
+                else
+                {
+                    HandleMovement(0.0f, (float)angle2);
+                    executedMovement = 0.0f;
+                    executedRotation = (float)angle2;
+                    _navigator.addMovement(executedMovement, executedRotation);
+                }
+
+               
+
+
+
+               
+               
             }
 
             //reset the values
