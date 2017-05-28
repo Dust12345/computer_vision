@@ -817,12 +817,12 @@ namespace Frame.VrAibo
             int objectEnd = 0;
             bool objectToLeft;
 
-            hsvEvalReturn frontStatus = evalMask(maskFront, scanHeigth, out objectEnd, out objectToLeft);
+            hsvEvalReturn frontStatus = evalMask2(maskFront, scanHeigth, out objectEnd, out objectToLeft);
 
             int objectEndR = 0;
             bool objectToLeftR;
 
-            hsvEvalReturn rStatus = evalMask(maskRight, scanHeigth, out objectEndR, out objectToLeftR);
+            //hsvEvalReturn rStatus = evalMask2(maskRight, scanHeigth, out objectEndR, out objectToLeftR);
 
 
             //hsvEvalReturn frontStatus = evalMask(maskFront, scanHeigth, out objectEnd, out objectToLeft);
@@ -831,19 +831,8 @@ namespace Frame.VrAibo
 
             if (frontStatus == hsvEvalReturn.No_Object)
             {
-                //check if the sides are clear
-                if (rStatus == hsvEvalReturn.No_Object)
-                {
-                    //no object to the rigth
-
-                }
-                else
-                {
-                    //movementConsenter.objectDetectionRequest(AiboSpeed, 0);
-                }
-
-                //do nothing
-                //return;
+               
+               // return;
             }
             else if (frontStatus == hsvEvalReturn.Object_no_border)
             {
@@ -861,29 +850,52 @@ namespace Frame.VrAibo
                     int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 5) - objectEnd;
                     float phi = Alpha * diffX;
 
+                    if (phi > 15 || phi < -15)
+                    {
+                        movementConsenter.objectDetectionRequest(0, phi);
+                    }
+                    else
+                    {
+                        movementConsenter.objectDetectionRequest(AiboSpeed, phi);
+                    }
+
                     frontHeadPos = 15;
 
                     Logger.Instance.LogInfo("Phi " + phi);
 
                     //_vrAibo.Turn(phi);
-                    movementConsenter.objectDetectionRequest(AiboSpeed, phi);
+                 
 
                 }
                 else
-                {                 
+                {
+
+                    Logger.Instance.LogInfo("object is on the R");
+
+                    Logger.Instance.LogInfo("abject end " + objectEnd);
 
                     //object to the rigth
-                    int diffX = GLab.VirtualAibo.VrAibo.SurfaceWidth - (GLab.VirtualAibo.VrAibo.SurfaceWidth / 5) - objectEnd;
+                    int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth - (GLab.VirtualAibo.VrAibo.SurfaceWidth / 5)) - objectEnd;
                     float phi = Alpha * diffX;
 
-                    //Logger.Instance.LogInfo("Phi " + phi);
+                    Logger.Instance.LogInfo("diffx " + diffX);
 
+                    Logger.Instance.LogInfo("Phi " + phi);
+
+                    if (phi > 15 || phi < -15)
+                    {
+                        movementConsenter.objectDetectionRequest(0, phi);
+                    }
+                    else
+                    {
+                        movementConsenter.objectDetectionRequest(AiboSpeed, phi);
+                    }
 
 
                     frontHeadPos = -15;
 
                     //_vrAibo.Turn(phi);
-                    movementConsenter.objectDetectionRequest(AiboSpeed, phi);
+                    
                 }
 
             }
@@ -895,11 +907,138 @@ namespace Frame.VrAibo
 
         }
 
+        private hsvEvalReturn evalMask2(Image<Gray, byte> mask, int scanHeigth, out int objectEnd, out bool objectToLeft)
+        {
+            List<Segment> objectSegments = new List<Segment>();
+            bool onObject = 0 < mask.Data[scanHeigth, 0,0];           
+
+            int newSegemntStart = 0;
+
+            for (int i = 0; i < mask.Width; i++)
+            {
+               
+                //get the distance
+                double pixelColor = mask.Data[scanHeigth, i,0];
+                bool isCurrentPixelObject = 0 < pixelColor;
+                //check if the current pixel still the same as the segment we are currently tracking
+                if (isCurrentPixelObject == onObject)
+                {
+                    //in this case do nothing
+                }
+                else
+                {
+                    if (onObject)
+                    {
+                        //change detected
+                        objectSegments.Add(new Segment(newSegemntStart, i - 1, onObject));                      
+                    }
+                    newSegemntStart = i;
+                    onObject = isCurrentPixelObject;
+                }
+            }
+
+            if (onObject)
+            {
+                //dont forget to add the last segment
+                objectSegments.Add(new Segment(newSegemntStart, mask.Width, onObject));
+            }
+
+
+         
+                if (objectSegments.Count == 0)
+                {
+                    Logger.Instance.LogInfo("No object detected");
+                    objectEnd = 0;
+                    objectToLeft = false;
+                    return hsvEvalReturn.No_Object;
+                }
+
+            //eval the segmens
+            if (objectSegments.Count == 1)
+            {
+                Logger.Instance.LogInfo("Only one object detected");
+                if (objectSegments[0].start == 0 && objectSegments[0].end== mask.Width)
+                {
+                    objectEnd = 0;
+                    objectToLeft = true;
+                    return hsvEvalReturn.Object_no_border;
+                }
+                else
+                {
+                    
+
+                    int distToLeft = objectSegments[0].start;
+                    int distToRigth = mask.Width - objectSegments[0].end;
+
+                    if (distToLeft < distToRigth)
+                    {
+                        objectEnd = objectSegments[0].end;
+                        objectToLeft = true;
+                        return hsvEvalReturn.Object_with_border;
+                    }
+                    else
+                    {
+                        objectEnd = objectSegments[0].start;
+                        objectToLeft = false;
+                        return hsvEvalReturn.Object_with_border;
+                    }
+                }
+            }
+            else
+            {
+                //more than one object
+
+                Logger.Instance.LogInfo("More than one object");
+
+                //check which gap between segments is the closest to the center of the image
+                int imageCenter = mask.Width / 2;
+                int closestStart = -1;
+                int closestEnd = -1;
+                int closestDist = -1;
+
+                for (int i = 1; i < objectSegments.Count; i++)
+                {
+                    int center = (objectSegments[i].start - ((objectSegments[i].start - objectSegments[i - 1].end) / 2));
+
+                    //calc distance to image center
+                    int dist = Math.Abs(center - imageCenter);
+
+                    if (closestDist == -1)
+                    {
+                        //first gap we see
+                        closestDist = dist;
+                        closestStart = objectSegments[i - 1].end;
+                        closestEnd = objectSegments[i].start;
+
+                    }
+                    else
+                    {
+                        if (dist < closestDist)
+                        {
+                            closestDist = dist;
+                            closestStart = objectSegments[i - 1].end;
+                            closestEnd = objectSegments[i].start;
+                        }
+                    }
+                }
+
+                objectEnd = closestEnd;
+                objectToLeft = false;
+
+                Logger.Instance.LogInfo("Object to the rigth, with the end at " + objectEnd);
+
+                return hsvEvalReturn.Object_with_border;
+
+
+
+            }
+          
+        }
+
         private hsvEvalReturn evalMask(Image<Gray, byte> mask, int scanHeigth, out int objectEnd, out bool objectToLeft)
         {
             //check if we start on free space or an object
             bool startOnObject = mask[scanHeigth, 0].Intensity > 0;
-
 
             for (int i = 0; i < mask.Width; i++)
             {
@@ -911,8 +1050,6 @@ namespace Frame.VrAibo
                     //found a change
                     objectEnd = i;
 
-
-
                     //determine which side of the img the object was on
                     //since we started scanning from the left, this means starting in th object means the object is to the left
                     if (startOnObject)
@@ -923,7 +1060,6 @@ namespace Frame.VrAibo
                     {
                         objectToLeft = false;
                     }
-
                     return hsvEvalReturn.Object_with_border;
                 }
             }
