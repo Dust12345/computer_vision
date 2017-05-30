@@ -421,7 +421,8 @@ namespace Frame.VrAibo
 
             //save the values from the last interation for comparison         
 
-          
+            int sideLookRange = 1;
+            int knowPathThreshold = 5;
             bool frontOK = false;
 
             int lookAheadDistance = 10;
@@ -485,7 +486,43 @@ namespace Frame.VrAibo
             {
                 rigthOK = false;
                 LeftOK = false;
-            }           
+            }
+
+
+
+            Vector2 posOfPathLeft = new Vector2(0, sideLookRange);
+            double rotLeft = nodeNavigator.CurrentRobotRotation + 90;
+            rotLeft = rotLeft % 360;
+
+            posOfPathLeft = VctOp.calcMovementVector(rotLeft, posOfPathLeft);
+
+            posOfPathLeft.X = +nodeNavigator.CurrentRobotPosition.X;
+            posOfPathLeft.Y = +nodeNavigator.CurrentRobotPosition.Y;
+
+
+            bool l = nodeNavigator.isKnowPath(posOfPathLeft, knowPathThreshold);
+
+            if (l)
+            {
+                LeftOK = false;
+            }
+
+            Vector2 posOfPathRigth = new Vector2(0, sideLookRange);
+            double rotRigth = nodeNavigator.CurrentRobotRotation - 90;
+            rotRigth = rotRigth % 360;
+
+            posOfPathRigth = VctOp.calcMovementVector(rotRigth, posOfPathRigth);
+
+            posOfPathRigth.X = +nodeNavigator.CurrentRobotPosition.X;
+            posOfPathRigth.Y = +nodeNavigator.CurrentRobotPosition.Y;
+
+
+            bool r = nodeNavigator.isKnowPath(posOfPathRigth, knowPathThreshold);
+            if (r)
+            {
+                rigthOK = false;
+            }
+
 
             //check we returned to a previusly visited intersection
             if (justReturnedFromTrackBack&&false)
@@ -556,26 +593,73 @@ namespace Frame.VrAibo
                     bool leftScanResult = ImageOperations.scanForSidePathLeft(left, sideScanHeigth, 10);
                     bool rigthScanResult = ImageOperations.scanForSidePathRigth(rigth, sideScanHeigth, 10);
 
+
+
                     if (disableSideMovement)
                     {
                         leftScanResult = false;
                         rigthScanResult = false;
-                    }                   
+                    }
+
+                     posOfPathLeft = new Vector2(0, sideLookRange);
+                     rotLeft = nodeNavigator.CurrentRobotRotation + 90;
+                    rotLeft = rotLeft % 360;
+
+                    posOfPathLeft = VctOp.calcMovementVector(rotLeft, posOfPathLeft);
+
+                    posOfPathLeft.X = +nodeNavigator.CurrentRobotPosition.X;
+                    posOfPathLeft.Y = +nodeNavigator.CurrentRobotPosition.Y;
+
+
+                    l = nodeNavigator.isKnowPath(posOfPathLeft, knowPathThreshold);
+
+                    if (l)
+                    {
+                        leftScanResult = false;
+                    }
+
+                    posOfPathRigth = new Vector2(0, sideLookRange);
+                    rotRigth = nodeNavigator.CurrentRobotRotation - 90;
+                    rotRigth = rotRigth % 360;
+
+                    posOfPathRigth = VctOp.calcMovementVector(rotRigth, posOfPathRigth);
+
+                    posOfPathRigth.X = +nodeNavigator.CurrentRobotPosition.X;
+                    posOfPathRigth.Y = +nodeNavigator.CurrentRobotPosition.Y;
+
+
+                    r = nodeNavigator.isKnowPath(posOfPathRigth, knowPathThreshold);
+                    if (r)
+                    {
+                        rigthScanResult = false;
+                    }
+
 
                     if (leftScanResult && !rigthScanResult)
                     {
+                        //check if the path we saw is an old one
+
+                      
+
                         //simpe left turn
                         movementConsenter.pathDetectionRequest(0, 90);
                         return;
                     }
                     else if (!leftScanResult && rigthScanResult)
                     {
+
+                      
+
                         //simple rigth turn
                         movementConsenter.pathDetectionRequest(0, -90);
                         return;
                     }
                     else
                     {
+                        
+
+                      
+
                         movementConsenter.pathDetectionRequest(0, 90);
                         nodeNavigator.createNewNodeAtCurrentPosition(false, true, false);
                         //T intersection
@@ -1187,7 +1271,6 @@ namespace Frame.VrAibo
             CvInvoke.cvSetImageCOI(center.Ptr, 0);
             CvInvoke.cvSetImageCOI(channelRed.Ptr, 0);
 
-            nodeNavigator.isKnowPath(new Vector2(100, 100), 1);
 
             
                 if (picsTaken == 0)
