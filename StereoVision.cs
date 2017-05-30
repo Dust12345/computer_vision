@@ -67,7 +67,7 @@ namespace Frame.VrAibo
         private GLab.StereoVision.StereoVision _stereoVision;
         private double lastDepth = 0;
 
-        bool disableSideMovement = true;
+        bool disableSideMovement = false;
 
         Hsv colorfDetectedObject = new Hsv();
         bool objectDetected = false;
@@ -78,8 +78,6 @@ namespace Frame.VrAibo
 
         ObstacleManager om;
         NodeNavigator nodeNavigator;
-
-        float distMovedTillLastTurn = 0;
 
 
 
@@ -358,6 +356,64 @@ namespace Frame.VrAibo
             return false;
         }*/
 
+        private void handleReturnFromMoveBack()
+        {
+            //Logger.Instance.LogInfo("Just returned");
+
+            justReturnedFromTrackBack = false;
+            //check wether the intersection has a path we did not visit yet
+            if (movePairs.Count == 1)
+            {
+
+                MovePair mp = movePairs[0];
+
+                //distMovedTillLastTurn = 0;
+                if (movePairs[0].left)
+                {
+
+                    movementConsenter.pathDetectionRequest(AiboSpeed, 90);
+
+                  //  distMovedTillLastTurn += AiboSpeed;
+
+                    mp.left = false;
+                    mp.movement = AiboSpeed;
+                    mp.turn = 90;
+                    movePairs.Add(mp);
+                }
+                else if (movePairs[0].froont)
+                {
+
+
+                    movementConsenter.pathDetectionRequest(AiboSpeed, 0);
+
+
+                    //distMovedTillLastTurn += AiboSpeed;
+
+                    mp.froont = false;
+                    mp.movement = AiboSpeed;
+                    movePairs.Add(mp);
+                }
+                else
+                {
+
+                    movementConsenter.pathDetectionRequest(AiboSpeed, -90);
+
+                    //distMovedTillLastTurn += AiboSpeed;
+
+                    mp.rigth = false;
+                    mp.movement = AiboSpeed;
+                    mp.turn = -90;
+                    movePairs.Add(mp);
+                }
+
+            }
+            else
+            {
+                //all paths of the intersection were visited, turn around and move back
+                //mc.RequestRotation(180);
+                //mc.RequestMovement(AiboSpeed);
+            }
+        }
 
         private void moveBasedOnImage()
         {
@@ -365,7 +421,7 @@ namespace Frame.VrAibo
 
             //save the values from the last interation for comparison         
 
-            int minMoveDistanceTillNextTurn = 10;
+          
             bool frontOK = false;
 
             int lookAheadDistance = 10;
@@ -411,16 +467,11 @@ namespace Frame.VrAibo
                 left.Draw(ls, new Rgb(0, 0, 255), 2);
             }
 
-
             int lineStartRigth = -1;
             int lineEndRigth = -1;
 
             bool rigthOK = false;
-
-
             pathFound = ImageOperations.scanForPath(rigth, scanHeigth, out lineStartRigth, out lineEndRigth,pathMinThreshold);
-
-
 
             //check if the return values suggest that ther is a path
             if (pathFound && lineStartRigth != -1 && lineEndRigth != -1 && ImageOperations.isSidePath(lineStartRigth, lineEndRigth, rigth.Width))
@@ -434,68 +485,12 @@ namespace Frame.VrAibo
             {
                 rigthOK = false;
                 LeftOK = false;
-            }
-           
+            }           
 
             //check we returned to a previusly visited intersection
-            if (justReturnedFromTrackBack)
+            if (justReturnedFromTrackBack&&false)
             {
-
-                //Logger.Instance.LogInfo("Just returned");
-
-                justReturnedFromTrackBack = false;
-                //check wether the intersection has a path we did not visit yet
-                if (movePairs.Count == 1)
-                {
-
-                    MovePair mp = movePairs[0];
-
-                    distMovedTillLastTurn = 0;
-                    if (movePairs[0].left)
-                    {
-
-                        movementConsenter.pathDetectionRequest(AiboSpeed, 90);
-
-                        distMovedTillLastTurn += AiboSpeed;
-
-                        mp.left = false;
-                        mp.movement = AiboSpeed;
-                        mp.turn = 90;
-                        movePairs.Add(mp);
-                    }
-                    else if (movePairs[0].froont)
-                    {
-
-
-                        movementConsenter.pathDetectionRequest(AiboSpeed, 0);
-
-
-                        distMovedTillLastTurn += AiboSpeed;
-
-                        mp.froont = false;
-                        mp.movement = AiboSpeed;
-                        movePairs.Add(mp);
-                    }
-                    else
-                    {
-
-                        movementConsenter.pathDetectionRequest(AiboSpeed, -90);
-
-                        distMovedTillLastTurn += AiboSpeed;
-
-                        mp.rigth = false;
-                        mp.movement = AiboSpeed;
-                        mp.turn = -90;
-                        movePairs.Add(mp);
-                    }
-
-                }
-                else
-                {
-                    //all paths of the intersection were visited, turn around and move back
-                    //mc.RequestRotation(180);
-                    //mc.RequestMovement(AiboSpeed);
-                }
+                handleReturnFromMoveBack();             
             }
             else
             {
@@ -504,93 +499,42 @@ namespace Frame.VrAibo
                 //check of the front is clear
                 if (frontOK)
                 {
-                     Logger.Instance.LogInfo("Front ok");
-                    //Logger.Instance.LogInfo("Status R: "+rigthOK);
-                    //Logger.Instance.LogInfo("Min Status: " + (distMovedTillLastTurn < minMoveDistanceTillNextTurn));
-                    //Logger.Instance.LogInfo("Moved: " + distMovedTillLastTurn + " must move: " + minMoveDistanceTillNextTurn);
-
-
-
                     //check if there are no side paths or if we ignore them because we just turned
-                    if ((!LeftOK && !rigthOK) || distMovedTillLastTurn < minMoveDistanceTillNextTurn)
+                    if ((!LeftOK && !rigthOK))
                     {
-
-
                         //just move front
                         //only way to move it forward
                         int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (lineEndFront - ((lineEndFront - lineStartFront) / 2));
                         float phi = Alpha * diffX;
-
-                        MovePair mp = new MovePair();
-                        mp.movement = AiboSpeed;
-
-                        if (phi != 0.0f)
-                        {
-                            mp.turn = phi / 2;
-                        }
-                        else
-                        {
-                            phi = 0;
-                        }
-
-
                         movementConsenter.pathDetectionRequest(AiboSpeed, phi);
-                        movePairs.Add(mp);
-                        distMovedTillLastTurn += AiboSpeed;
+                      
                     }
                     else
                     {
-                        //a possible intersection has beed detected
-
-                        // Logger.Instance.LogInfo("new intersection found");
-                        distMovedTillLastTurn = 0;
-                        movePairs.Clear();
-
-
-                        MovePair mp = new MovePair();
-                        mp.isIntersection = true;
-                        mp.froont = true;
+                        //a possible intersection has beed detected                      
                         //check which way to intersection is going
                         if (LeftOK && rigthOK)
                         {
-                            //intersections goes both ways
-                            mp.left = true;
-                            mp.rigth = true;
-                            //if both way, go left first
+                            nodeNavigator.createNewNodeAtCurrentPosition(false, true, true);
 
-                            movementConsenter.pathDetectionRequest(AiboSpeed, 90);
-                            distMovedTillLastTurn += AiboSpeed;
-
-                            mp.left = false;
-                            mp.movement = AiboSpeed;
-                            mp.turn = 90;
-                            movePairs.Add(mp);
+                            //intersections goes both ways         
+                            //move left first, on hard turns like this never move on the turn
+                            movementConsenter.pathDetectionRequest(0, 90);
+                          
 
                         }
                         else if (LeftOK)
                         {
-                            movementConsenter.pathDetectionRequest(AiboSpeed, 90);
-                            distMovedTillLastTurn += AiboSpeed;
-
-                            mp.left = false;
-                            mp.movement = AiboSpeed;
-                            mp.turn = 90;
-                            movePairs.Add(mp);
+                            nodeNavigator.createNewNodeAtCurrentPosition(false, false, true);
+                            //intersection only goes to the left
+                            movementConsenter.pathDetectionRequest(0, 90);
                         }
                         else
                         {
-
-
-                            movementConsenter.pathDetectionRequest(AiboSpeed, -90);
-                            distMovedTillLastTurn += AiboSpeed;
-
-                            mp.rigth = false;
-                            mp.movement = AiboSpeed;
-                            mp.turn = -90;
-                            movePairs.Add(mp);
+                            nodeNavigator.createNewNodeAtCurrentPosition(false, false, true);
+                            //intersection goes to the rigth
+                            movementConsenter.pathDetectionRequest(0, -90);                           
                         }
-
-
                     }
 
                 }
@@ -616,28 +560,24 @@ namespace Frame.VrAibo
                     {
                         leftScanResult = false;
                         rigthScanResult = false;
-                    }
-
-                   
+                    }                   
 
                     if (leftScanResult && !rigthScanResult)
                     {
                         //simpe left turn
-
-                        movementConsenter.pathDetectionRequest(AiboSpeed, 90);
-                        distMovedTillLastTurn = 0;
+                        movementConsenter.pathDetectionRequest(0, 90);
                         return;
                     }
                     else if (!leftScanResult && rigthScanResult)
                     {
                         //simple rigth turn
-                        movementConsenter.pathDetectionRequest(AiboSpeed, -90);
-                        distMovedTillLastTurn = 0;
+                        movementConsenter.pathDetectionRequest(0, -90);
                         return;
                     }
                     else
                     {
-                        distMovedTillLastTurn = 0;
+                        movementConsenter.pathDetectionRequest(0, 90);
+                        nodeNavigator.createNewNodeAtCurrentPosition(false, true, false);
                         //T intersection
                     }
 
@@ -1246,7 +1186,9 @@ namespace Frame.VrAibo
             // reset coi
             CvInvoke.cvSetImageCOI(center.Ptr, 0);
             CvInvoke.cvSetImageCOI(channelRed.Ptr, 0);
-        
+
+            nodeNavigator.isKnowPath(new Vector2(100, 100), 1);
+
             
                 if (picsTaken == 0)
                 {
@@ -1279,7 +1221,9 @@ namespace Frame.VrAibo
                     picsTaken = 0;
                     //Logger.Instance.LogInfo("All Pics taken");
                     moveBasedOnImage();
-                    doStereoVisionStuff(front, disp);
+                    //doStereoVisionStuff(front, disp);
+
+                 
 
                     //List<Hsv> colorsToMask = om.getColorsOfCloseObstacals(nodeNavigator.CurrentRobotPosition, 10);
 
@@ -1287,12 +1231,13 @@ namespace Frame.VrAibo
                     //movementConsenter.pathDetectionRequest(AiboSpeed, 0);
                     //moveAroundObject();
 
-                    moveAroundObject2();
+                    //moveAroundObject2();
 
                     float executedMovement;
                     float executedRotation;
 
                     movementConsenter.execute(out executedMovement, out executedRotation);
+                   
                     //nodeNavigator.addMovement(executedMovement, executedRotation);
                 }
 

@@ -16,7 +16,12 @@ namespace Frame.VrAibo.Navigation
 
         public MovementHistory()
         {
-            _movementHistory = new Stack<MovementStep>();
+            _movementHistory = new Stack<MovementStep>();            
+        }
+
+        public List<MovementStep> getAsList()
+        {
+            return _movementHistory.ToList();
         }
 
         /// <summary>

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Microsoft.Xna.Framework;
+using GLab.Core;
+using Emgu.CV;
 
 namespace Frame.VrAibo.Navigation
 {
@@ -31,6 +33,71 @@ namespace Frame.VrAibo.Navigation
             return VctOp.calcMovementVector(CurrentRobotRotation, new Vector2(0, 1));
         }
 
+        private bool isPointOnMovementHistory(Vector2 endPosOfThisHistory,Vector2 posOfDetectedPath,ref float rotation ,double distThreshold,List<MovementStep> movementSteps)
+        {
+            for(int i= movementSteps.Count - 1; i > -1; i--)
+            {
+                Vector2 vct = VctOp.calcMovementVector(rotation,new Vector2(0, -movementSteps[i].Movement));
+                endPosOfThisHistory.X = endPosOfThisHistory.X + vct.X;
+                endPosOfThisHistory.Y = endPosOfThisHistory.Y + vct.Y;
+
+                rotation = rotation - movementSteps[i].Rotation;
+                rotation = rotation % 360;
+
+                //check if that poinz is close to the refernce point
+                double dist = VctOp.calcDistance(posOfDetectedPath, endPosOfThisHistory);
+
+                Logger.Instance.LogInfo(endPosOfThisHistory+" end pos");
+
+
+                if (dist < distThreshold)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public bool isKnowPath(Vector2 posOfDetectedPath, double distThreshold)
+        {
+            //check if that point is close to a point in the current movement history
+            MovementHistory mh = CurrentMovementHistory;
+
+            float rotation = (float)CurrentRobotRotation;
+            Vector2 robotPos = new Vector2(CurrentRobotPosition.X, CurrentRobotPosition.Y);
+
+            bool isOnPath= isPointOnMovementHistory(robotPos, posOfDetectedPath,ref rotation, distThreshold, mh.getAsList());
+
+            if (isOnPath)
+            {
+                return true;
+            }else
+            {
+                if (_lastNode.IsRootNode)
+                {
+                    return false;
+                }
+
+                Node n = _lastNode.Parent;
+
+                while (true)
+                {
+                    
+                    if(isPointOnMovementHistory(robotPos, posOfDetectedPath, ref rotation, distThreshold, n.MovementHistory.getAsList())){
+                        return true;
+                    }
+
+                    if (n.IsRootNode)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         public void addMovement(float movementDistance, float rotation)
         {
             // Add new step to the current history
@@ -52,9 +119,9 @@ namespace Frame.VrAibo.Navigation
         /// This copies the current movement history into the node memory,
         /// creating a new segment
         /// </summary>
-        public void createNewNodeAtCurrentPosition()
+        public void createNewNodeAtCurrentPosition(bool hasLeftTurn = false, bool hasRigthTurn = false,bool hasFront = true)
         {
-            Node newNode = new Node(CurrentMovementHistory, _lastNode);
+            Node newNode = new Node(CurrentMovementHistory, _lastNode, hasLeftTurn, hasRigthTurn,hasFront);
             _lastNode.Children.Add(newNode);
 
             CurrentMovementHistory.clear();

@@ -10,6 +10,10 @@ namespace Frame.VrAibo.Navigation
     {
         public static Node RootNode { get; private set; }
 
+        public bool HasLeftTurn { get; private set; }
+        public bool HasRigthTurn { get; private set; }
+        public bool HasFront { get; private set; }
+
         public Vector2 Coordinate { get; private set; }
         public MovementHistory MovementHistory { get; private set; }
         public List<Node> Children { get; private set; }
@@ -18,7 +22,7 @@ namespace Frame.VrAibo.Navigation
 
         public bool IsRootNode { get; private set; }
 
-        public Node(MovementHistory movementHistory = null, Node parent = null, bool setAsRoot = false)
+        public Node(MovementHistory movementHistory = null, Node parent = null, bool setAsRoot = false, bool hasLeftTurn = false,bool hasRigthTurn = false,bool hasFront = true)
         {
             if(setAsRoot)
             {
@@ -44,6 +48,10 @@ namespace Frame.VrAibo.Navigation
                     throw new ArgumentException("Movement history must be defined for non-root nodes");
                 }
             }
+
+            HasLeftTurn = hasLeftTurn;
+            HasRigthTurn = hasRigthTurn;
+            HasFront = hasFront;
 
             MovementHistory = movementHistory;
             Parent = parent;
