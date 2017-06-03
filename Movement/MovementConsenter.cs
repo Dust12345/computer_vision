@@ -34,6 +34,9 @@ namespace Frame.VrAibo.Movement
 
         private bool disableLimiter = true;
 
+        private bool firstMovementOnReturn = false;
+        private bool executeReverse = false;
+
 
         public MovementConsenter(GLab.VirtualAibo.VrAibo robot, NodeNavigator navigator)
         {
@@ -48,6 +51,16 @@ namespace Frame.VrAibo.Movement
         public void RequestReturnToLastNode()
         {
             returnToLastNode = true;
+            firstMovementOnReturn = true;
+        }
+
+        private void HandleReverseMovement(float moveAmount, float turnAmount)
+        {
+            if (disableLimiter)
+            {
+                _robot.Walk(moveAmount);
+                _robot.Turn(-turnAmount);
+            }
         }
 
         private bool HandleMovement(float moveAmount, float turnAmount)
@@ -151,11 +164,22 @@ namespace Frame.VrAibo.Movement
 
             if (history.Count <= 0)
             {
-                returnToLastNode = false;
+                //returnToLastNode = false;
 
                 // TODO: useless last execution path for empty movement history
                 executedMovement = 0;
                 executedRotation = 0;
+                return;
+            }
+
+            //bevore we do anything with the movement steps, we have to do a 180 deg turn
+            if (firstMovementOnReturn)
+            {
+
+                executedMovement = 0;
+                executedRotation = 180;
+                HandleMovement(0, 180);
+                firstMovementOnReturn = false;
                 return;
             }
 
@@ -164,8 +188,11 @@ namespace Frame.VrAibo.Movement
             MovementStep step = history.pop();
 
             // Feed execute behavior with the inverse of the history
-            executedMovement = -step.Movement;
-            executedRotation = -step.Rotation;
+            
+            executedMovement = step.Movement;
+            executedRotation = step.Rotation;
+
+            HandleReverseMovement(step.Movement, step.Rotation);
         }
 
         private void handleBothRequest(out float executedMovement, out float executedRotation)
@@ -227,6 +254,7 @@ namespace Frame.VrAibo.Movement
             if (returnToLastNode)
             {
                 handleReturnToLastNode(out executedMovement, out executedRotation);
+                _navigator.trackReverseMovement(executedMovement, executedRotation);
             }
             else if (pathRequstedMovement && !objectDetectionRequstedMovement)
             {
@@ -248,6 +276,12 @@ namespace Frame.VrAibo.Movement
             }
             else
             {
+                //disable this for now
+                executedMovement = 0;
+                executedRotation = 0;
+
+                return;
+
                 //move to the last know point
                 Vector2 targetDest = new Vector2(0, 30);
 

@@ -427,6 +427,8 @@ namespace Frame.VrAibo
 
             int lookAheadDistance = 10;
 
+            int nodeCheckTheshold = 4;
+
 
             int scanHeigth = GLab.VirtualAibo.VrAibo.SurfaceHeight - 10;
 
@@ -490,7 +492,7 @@ namespace Frame.VrAibo
 
 
 
-            Vector2 posOfPathLeft = new Vector2(0, sideLookRange);
+          /*  Vector2 posOfPathLeft = new Vector2(0, sideLookRange);
             double rotLeft = nodeNavigator.CurrentRobotRotation + 90;
             rotLeft = rotLeft % 360;
 
@@ -504,6 +506,7 @@ namespace Frame.VrAibo
 
             if (l)
             {
+                Logger.Instance.LogInfo("Left failed because if node");
                 LeftOK = false;
             }
 
@@ -520,9 +523,18 @@ namespace Frame.VrAibo
             bool r = nodeNavigator.isKnowPath(posOfPathRigth, knowPathThreshold);
             if (r)
             {
+                Logger.Instance.LogInfo("Rigth failed because if node");
+                rigthOK = false;
+            }*/
+
+            //check if we are very close to a node
+            bool closeToNode = nodeNavigator.isCloseToNode(nodeCheckTheshold);
+
+            if (closeToNode)
+            {
+                LeftOK = false;
                 rigthOK = false;
             }
-
 
             //check we returned to a previusly visited intersection
             if (justReturnedFromTrackBack&&false)
@@ -568,6 +580,7 @@ namespace Frame.VrAibo
                         }
                         else
                         {
+                          
                             nodeNavigator.createNewNodeAtCurrentPosition(false, false, true);
                             //intersection goes to the rigth
                             movementConsenter.pathDetectionRequest(0, -90);                           
@@ -582,7 +595,7 @@ namespace Frame.VrAibo
 
                     //front not ok
 
-
+                    Logger.Instance.LogInfo("Front is blocked");
                     //chech whether this realy is a dead end
                     //there is the possibility that a T shaped intersection or a simple turn is view as a dead end,
                     //because the end of the path is reached, while the side views to not enoug of the side paths to detect them
@@ -595,13 +608,21 @@ namespace Frame.VrAibo
 
 
 
+
+                    if (closeToNode)
+                    {
+                        leftScanResult = false;
+                        rigthScanResult = false;
+                    }
+
+
                     if (disableSideMovement)
                     {
                         leftScanResult = false;
                         rigthScanResult = false;
                     }
 
-                     posOfPathLeft = new Vector2(0, sideLookRange);
+                    /* posOfPathLeft = new Vector2(0, sideLookRange);
                      rotLeft = nodeNavigator.CurrentRobotRotation + 90;
                     rotLeft = rotLeft % 360;
 
@@ -632,7 +653,7 @@ namespace Frame.VrAibo
                     if (r)
                     {
                         rigthScanResult = false;
-                    }
+                    }*/
 
 
                     if (leftScanResult && !rigthScanResult)
@@ -654,15 +675,19 @@ namespace Frame.VrAibo
                         movementConsenter.pathDetectionRequest(0, -90);
                         return;
                     }
-                    else
-                    {
-                        
+                    else if (leftScanResult &&!rigthScanResult)
+                    {                     
 
                       
 
                         movementConsenter.pathDetectionRequest(0, 90);
                         nodeNavigator.createNewNodeAtCurrentPosition(false, true, false);
                         //T intersection
+                    }
+                    else
+                    {
+                        //dead end reached                       
+                        movementConsenter.RequestReturnToLastNode();
                     }
 
                     //mc.RequestRotation(180);
@@ -1315,6 +1340,11 @@ namespace Frame.VrAibo
                     //moveAroundObject();
 
                     //moveAroundObject2();
+
+                    leftWindow.SetImage(left);
+                    rigthWindow.SetImage(rigth);
+
+                    frontWindow.SetImage(front);
 
                     float executedMovement;
                     float executedRotation;

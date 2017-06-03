@@ -24,10 +24,11 @@ namespace Frame.VrAibo.Navigation
             CurrentRobotRotation = 0;
 
             CurrentMovementHistory = new MovementHistory();
-            _headNode = new Node(null, null, true);
+            _headNode = new Node(new Vector2(0,0),null, null, true);
             _lastNode = _headNode;
         }
 
+        
         public Vector2 getCurrentHeading()
         {
             return VctOp.calcMovementVector(CurrentRobotRotation, new Vector2(0, 1));
@@ -98,6 +99,42 @@ namespace Frame.VrAibo.Navigation
             return false;
         }
 
+        public bool isCloseToNode(int distanceThreshold)
+        {
+            Node n = _lastNode;            
+
+            while (true)
+            {
+                if (VctOp.calcDistance(n.PosOfNode, CurrentRobotPosition) < distanceThreshold)
+                {
+                    return true;
+                }
+
+                if (n.IsRootNode)
+                {
+                    return false;
+                }
+                else
+                {
+                    n = n.Parent;
+                }
+            }
+        }
+
+
+        public void trackReverseMovement(float movementDistance, float rotation)
+        {
+            Vector2 unrotatedMovementVector = new Vector2(0, movementDistance);
+
+            //rotate the vector
+            Vector2 rotatedVector = VctOp.calcMovementVector(CurrentRobotRotation, unrotatedMovementVector);
+            CurrentRobotPosition = CurrentRobotPosition + rotatedVector;
+
+
+            CurrentRobotRotation -= rotation;
+            CurrentRobotRotation = CurrentRobotRotation % 360;
+        }
+
         public void addMovement(float movementDistance, float rotation)
         {
             // Add new step to the current history
@@ -121,7 +158,7 @@ namespace Frame.VrAibo.Navigation
         /// </summary>
         public void createNewNodeAtCurrentPosition(bool hasLeftTurn = false, bool hasRigthTurn = false,bool hasFront = true)
         {
-            Node newNode = new Node(CurrentMovementHistory, _lastNode, hasLeftTurn, hasRigthTurn,hasFront);
+            Node newNode = new Node(CurrentRobotPosition,CurrentMovementHistory, _lastNode, hasLeftTurn, hasRigthTurn,hasFront);
             _lastNode.Children.Add(newNode);
 
             CurrentMovementHistory.clear();

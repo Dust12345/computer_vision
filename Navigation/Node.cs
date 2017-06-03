@@ -13,6 +13,7 @@ namespace Frame.VrAibo.Navigation
         public bool HasLeftTurn { get; private set; }
         public bool HasRigthTurn { get; private set; }
         public bool HasFront { get; private set; }
+        public Vector2 PosOfNode { get; private set; }
 
         public Vector2 Coordinate { get; private set; }
         public MovementHistory MovementHistory { get; private set; }
@@ -22,7 +23,7 @@ namespace Frame.VrAibo.Navigation
 
         public bool IsRootNode { get; private set; }
 
-        public Node(MovementHistory movementHistory = null, Node parent = null, bool setAsRoot = false, bool hasLeftTurn = false,bool hasRigthTurn = false,bool hasFront = true)
+        public Node(Vector2 pos, MovementHistory movementHistory = null, Node parent = null, bool setAsRoot = false, bool hasLeftTurn = false, bool hasRigthTurn = false, bool hasFront = true)
         {
             if(setAsRoot)
             {
@@ -52,6 +53,9 @@ namespace Frame.VrAibo.Navigation
             HasLeftTurn = hasLeftTurn;
             HasRigthTurn = hasRigthTurn;
             HasFront = hasFront;
+            PosOfNode = pos;
+
+            Children = new List<Node>();
 
             MovementHistory = movementHistory;
             Parent = parent;
