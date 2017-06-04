@@ -28,7 +28,9 @@ namespace Frame.VrAibo.Navigation
             _lastNode = _headNode;
         }
 
-        
+
+      
+
         public Vector2 getCurrentHeading()
         {
             return VctOp.calcMovementVector(CurrentRobotRotation, new Vector2(0, 1));
@@ -99,7 +101,7 @@ namespace Frame.VrAibo.Navigation
             return false;
         }
 
-        public bool isCloseToNode(int distanceThreshold)
+        public bool isCloseToNode(double distanceThreshold)
         {
             Node n = _lastNode;            
 
@@ -121,6 +123,10 @@ namespace Frame.VrAibo.Navigation
             }
         }
 
+        public Node getCurrentNode()
+        {
+            return _lastNode;
+        }
 
         public void trackReverseMovement(float movementDistance, float rotation)
         {
@@ -131,12 +137,17 @@ namespace Frame.VrAibo.Navigation
             CurrentRobotPosition = CurrentRobotPosition + rotatedVector;
 
 
-            CurrentRobotRotation -= rotation;
+            CurrentRobotRotation += rotation;
             CurrentRobotRotation = CurrentRobotRotation % 360;
+          
+
+
         }
 
         public void addMovement(float movementDistance, float rotation)
         {
+           
+            
             // Add new step to the current history
             CurrentMovementHistory.push(new MovementStep(movementDistance, rotation));
 
@@ -158,7 +169,9 @@ namespace Frame.VrAibo.Navigation
         /// </summary>
         public void createNewNodeAtCurrentPosition(bool hasLeftTurn = false, bool hasRigthTurn = false,bool hasFront = true)
         {
-            Node newNode = new Node(CurrentRobotPosition,CurrentMovementHistory, _lastNode, hasLeftTurn, hasRigthTurn,hasFront);
+            Logger.Instance.LogInfo("ADDING A POINT");
+
+            Node newNode = new Node(CurrentRobotPosition,CurrentMovementHistory, _lastNode,false ,hasLeftTurn, hasRigthTurn,hasFront);
             _lastNode.Children.Add(newNode);
 
             CurrentMovementHistory.clear();

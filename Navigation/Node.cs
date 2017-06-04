@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using GLab.Core;
+using Emgu.CV;
 
 namespace Frame.VrAibo.Navigation
 {
@@ -10,9 +12,9 @@ namespace Frame.VrAibo.Navigation
     {
         public static Node RootNode { get; private set; }
 
-        public bool HasLeftTurn { get; private set; }
-        public bool HasRigthTurn { get; private set; }
-        public bool HasFront { get; private set; }
+        public bool HasLeftTurn { get; set; }
+        public bool HasRigthTurn { get; set; }
+        public bool HasFront { get; set; }
         public Vector2 PosOfNode { get; private set; }
 
         public Vector2 Coordinate { get; private set; }
@@ -25,6 +27,9 @@ namespace Frame.VrAibo.Navigation
 
         public Node(Vector2 pos, MovementHistory movementHistory = null, Node parent = null, bool setAsRoot = false, bool hasLeftTurn = false, bool hasRigthTurn = false, bool hasFront = true)
         {
+
+            Logger.Instance.LogInfo("Creating a node with letf" + hasLeftTurn + " r " + hasRigthTurn);
+
             if(setAsRoot)
             {
                 if(RootNode != null)

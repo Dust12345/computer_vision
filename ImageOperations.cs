@@ -222,11 +222,11 @@ namespace Frame.VrAibo
         public static bool isSidePath(int lineStart, int lineEnd, int imgWidth)
         {
             //first case applies if the path is wider than the image
-            if (lineStart == 0 && lineEnd == imgWidth)
+            if (lineStart == 0 && lineEnd == imgWidth-1)
             {
                 return true;
             }
-            else if (lineStart > 0 && lineEnd <= imgWidth)
+            else if (lineStart >= 0 && lineEnd <= imgWidth)
             {
                 return true;
             }
@@ -460,7 +460,7 @@ namespace Frame.VrAibo
             return true;
         }
 
-        public static bool scanForSidePathRigth(Image<Rgb, byte> img, int scanHeigth, int minSegmentLength)
+        public static bool scanForSidePathRigth(Image<Rgb, byte> img, int scanHeigth, int minSegmentLength,out int segmentEnd)
         {
 
             int sameColorPixels = 0;
@@ -481,10 +481,12 @@ namespace Frame.VrAibo
                     //a different color was scanned, check if we saw enough pixel
                     if (sameColorPixels >= minSegmentLength)
                     {
+                        segmentEnd = i;
                         return true;
                     }
                     else
                     {
+                        segmentEnd = -1;
                         return false;
                     }
                 }
@@ -492,11 +494,12 @@ namespace Frame.VrAibo
             }
 
             //realisticly this should never be reached
+            segmentEnd = -1;
             return false;
         }
 
 
-        public static bool scanForSidePathLeft(Image<Rgb, byte> img, int scanHeigth, int minSegmentLength)
+        public static bool scanForSidePathLeft(Image<Rgb, byte> img, int scanHeigth, int minSegmentLength, out int segmentStart)
         {
             int sameColorPixels = 0;
 
@@ -516,10 +519,12 @@ namespace Frame.VrAibo
                     //a different color was scanned, check if we saw enough pixel
                     if (sameColorPixels >= minSegmentLength)
                     {
+                        segmentStart = i;
                         return true;
                     }
                     else
                     {
+                        segmentStart = -1;
                         return false;
                     }
                 }
@@ -527,6 +532,7 @@ namespace Frame.VrAibo
             }
 
             //realisticly this should never be reached
+            segmentStart = -1;
             return false;
         }
     }

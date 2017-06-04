@@ -35,8 +35,12 @@ namespace Frame.VrAibo.Movement
         private bool disableLimiter = true;
 
         private bool firstMovementOnReturn = false;
-        private bool executeReverse = false;
 
+        private double lastRotOnReturn = 0;
+        private bool didLastRot = false;
+
+
+        
 
         public MovementConsenter(GLab.VirtualAibo.VrAibo robot, NodeNavigator navigator)
         {
@@ -52,6 +56,7 @@ namespace Frame.VrAibo.Movement
         {
             returnToLastNode = true;
             firstMovementOnReturn = true;
+            didLastRot = false;
         }
 
         private void HandleReverseMovement(float moveAmount, float turnAmount)
@@ -59,7 +64,7 @@ namespace Frame.VrAibo.Movement
             if (disableLimiter)
             {
                 _robot.Walk(moveAmount);
-                _robot.Turn(-turnAmount);
+                _robot.Turn(turnAmount);
             }
         }
 
@@ -81,6 +86,11 @@ namespace Frame.VrAibo.Movement
             return _currentLimiter.Done;
         }
 
+
+        public bool isReturning()
+        {
+            return returnToLastNode;
+        }
         public bool RequestMovement(float amount)
         {
             return HandleMovement(amount, 0.0f);
@@ -157,30 +167,87 @@ namespace Frame.VrAibo.Movement
             executedRotation = turnFromObjectDetection;
         }
 
-        private void handleReturnToLastNode(out float executedMovement, out float executedRotation)
+        private bool handleReturnToLastNode(out float executedMovement, out float executedRotation)
         {
+
             // Get current node history
             MovementHistory history = _navigator.CurrentMovementHistory;
 
             if (history.Count <= 0)
             {
-                //returnToLastNode = false;
 
-                // TODO: useless last execution path for empty movement history
-                executedMovement = 0;
-                executedRotation = 0;
-                return;
+                //we have to do a final 180 rotation
+                if (!didLastRot)
+                {
+                    HandleMovement(0, 180);
+                    executedMovement = 0;
+                    executedRotation = 180;
+                    didLastRot = true;
+                    return false;
+                }
+
+
+                returnToLastNode = false;
+                // reset us to the node we returned to
+                Node currentNode = _navigator.getCurrentNode();
+
+
+               //ceck which way to turn next
+
+                if (currentNode.HasLeftTurn)
+                {
+                    Logger.Instance.LogInfo("THIS IS NOZ WHERE I SHOULD GO Left");
+                    currentNode.HasLeftTurn = false;
+                    //try left next
+                    HandleMovement(0, 90);
+                    executedMovement = 0;
+                    executedRotation = 90;
+                    return true;
+                }
+                else if (currentNode.HasRigthTurn)
+                {                   
+                    currentNode.HasRigthTurn = false;
+                    HandleMovement(0, -90);
+                    executedMovement = 0;
+                    executedRotation = -90;
+                    return true;
+                }
+                else if (currentNode.HasFront)
+                {                   
+                    //nothing to do
+                    currentNode.HasFront = false;
+                    executedMovement = 0;
+                    executedRotation = 0;
+                    return true;
+                }
+                else
+                {
+
+                    //node was a dead end
+                    executedMovement = 0;
+                    executedRotation = 0;
+                    return true;
+                }
+                
+              
             }
 
             //bevore we do anything with the movement steps, we have to do a 180 deg turn
             if (firstMovementOnReturn)
             {
 
-                executedMovement = 0;
+                List<MovementStep> l = history.getAsList();
+
+                for (int i = 0; i < l.Count; i++)
+                {
+                    Logger.Instance.LogInfo("Step: "+l[i].Movement+" "+l[i].Rotation);
+                }
+
+                    executedMovement = 0;
                 executedRotation = 180;
                 HandleMovement(0, 180);
                 firstMovementOnReturn = false;
-                return;
+                return false;
             }
 
             Logger.Instance.LogInfo("Handle returning to last node");
@@ -188,11 +255,18 @@ namespace Frame.VrAibo.Movement
             MovementStep step = history.pop();
 
             // Feed execute behavior with the inverse of the history
-            
-            executedMovement = step.Movement;
-            executedRotation = step.Rotation;
 
-            HandleReverseMovement(step.Movement, step.Rotation);
+            Logger.Instance.LogInfo("Redoing a step: " + step.Movement + " " + step.Rotation);
+
+            //lastRotOnReturn = step.Rotation;
+
+           
+
+            executedMovement = step.Movement;
+            executedRotation = -step.Rotation;
+            HandleReverseMovement(step.Movement, -step.Rotation);
+
+            return false;
         }
 
         private void handleBothRequest(out float executedMovement, out float executedRotation)
@@ -246,25 +320,29 @@ namespace Frame.VrAibo.Movement
 #endif
         }
 
-        public void execute(out float executedMovement, out float executedRotation)
+        public bool execute(out float executedMovement, out float executedRotation)
         {
             Logger.Instance.LogInfo("Exectute called");
 
             //check the simple cases, where only one requested movement
             if (returnToLastNode)
             {
-                handleReturnToLastNode(out executedMovement, out executedRotation);
+                bool returnDone = handleReturnToLastNode(out executedMovement, out executedRotation);
                 _navigator.trackReverseMovement(executedMovement, executedRotation);
+
+                return returnDone;
             }
             else if (pathRequstedMovement && !objectDetectionRequstedMovement)
             {
                 handleSimplePathMovement(out executedMovement, out executedRotation);
                 _navigator.addMovement(executedMovement, executedRotation);
+                return false;
             }
             else if (!pathRequstedMovement && objectDetectionRequstedMovement)
             {
                 handleObjectDetectionMovement(out executedMovement, out executedRotation);
                 _navigator.addMovement(executedMovement, executedRotation);
+                return false;
             }
             else if (pathRequstedMovement && objectDetectionRequstedMovement)
             {
@@ -273,6 +351,7 @@ namespace Frame.VrAibo.Movement
                 //executedRotation = 0;
                 handleBothRequest(out executedMovement, out executedRotation);
                 _navigator.addMovement(executedMovement, executedRotation);
+                return false;
             }
             else
             {
@@ -280,7 +359,7 @@ namespace Frame.VrAibo.Movement
                 executedMovement = 0;
                 executedRotation = 0;
 
-                return;
+                return false;
 
                 //move to the last know point
                 Vector2 targetDest = new Vector2(0, 30);
