@@ -157,10 +157,17 @@ namespace Frame.VrAibo
 
             // Creates a new Virtual Aibo
             //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.4f, 35) };
-            _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.2f, 31.25f) };
+           // _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.2f, 31.25f) }; //up test red
 
-            //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.047f, -12.66f) };
+            //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(-0.047f, 50.66f) }; //yellow
 
+            _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(48.447f, 100.187f) }; 
+
+             //{X:48,44476 Y:100,1873}
+            _vrAibo.Rotation = -90;
+
+
+            //{X:-0,4840283 Y:50,83811}
 
             //{X:0,04798115 Y:-12,66051}
 
@@ -358,17 +365,10 @@ namespace Frame.VrAibo
         {
             Logger.Instance.LogInfo("----------------------------------");
 
-            //save the values from the last interation for comparison         
-
-            int sideLookRange = 1;
-            int knowPathThreshold = 5;
+            //save the values from the last interation for comparison 
             bool frontOK = false;
-
             int lookAheadDistance = 10;
-
-            double nodeCheckTheshold = 4;
-
-
+            double nodeCheckTheshold = 2;
             int scanHeigth = GLab.VirtualAibo.VrAibo.SurfaceHeight - 10;
 
             ImageOperations.scanForPath(front, scanHeigth, out lineStartFront, out lineEndFront,pathMinThreshold);
@@ -432,10 +432,16 @@ namespace Frame.VrAibo
                 LeftOK = false;
             }
 
+            //hasThatColor
+            bool leftHasColor = ImageOperations.hasThatColor(left, scanHeigth+20, referenceColor);
+            bool rigthHasColor = ImageOperations.hasThatColor(rigth, scanHeigth+20, referenceColor);
+
+
+            Logger.Instance.LogInfo("Old: L " + leftIsOldPath + " R " + rigthIsOld);
 
             if (leftIsOldPath)
             {
-                if (!LeftOK)
+                if (!leftHasColor)
                 {
                     leftIsOldPath = false;
                 }
@@ -447,7 +453,7 @@ namespace Frame.VrAibo
 
             if (rigthIsOld)
             {
-                if (!rigthOK)
+                if (!rigthHasColor)
                 {
                     rigthIsOld = false;
                 }
@@ -457,13 +463,15 @@ namespace Frame.VrAibo
                 }
             }
 
+            Logger.Instance.LogInfo("After eval Old: L " + leftIsOldPath + " R " + rigthIsOld);
+
             //check if we are very close to a node
             bool closeToNode = nodeNavigator.isCloseToNode(nodeCheckTheshold);
 
             if (closeToNode)
             {
-                //LeftOK = false;
-                //rigthOK = false;
+                LeftOK = false;
+                rigthOK = false;
             }
 
             //check we returned to a previusly visited intersection
@@ -548,8 +556,8 @@ namespace Frame.VrAibo
                     int leftStart = -1;
                     int rigthEnd = -1;
 
-                    bool leftScanResult = ImageOperations.scanForSidePathLeft(left, sideScanHeigth, 10, out leftStart);
-                    bool rigthScanResult = ImageOperations.scanForSidePathRigth(rigth, sideScanHeigth, 10, out rigthEnd);
+                    bool leftScanResult = ImageOperations.scanForSidePathLeft(left, sideScanHeigth, 10, out leftStart,referenceColor);
+                    bool rigthScanResult = ImageOperations.scanForSidePathRigth(rigth, sideScanHeigth, 10, out rigthEnd,referenceColor);
 
 
                     if (closeToNode)
@@ -602,10 +610,20 @@ namespace Frame.VrAibo
                         rigthScanResult = false;
                     }*/
 
+                    if (rigthIsOld)
+                    {
+                        rigthScanResult = false;
+                    }
+
+                    if (leftIsOldPath)
+                    {
+                        leftScanResult = false;
+                    }
 
                     if (leftScanResult && !rigthScanResult)
                     {
-
+                        Logger.Instance.LogInfo("LEFT TURN");
+                        Logger.Instance.LogInfo("L " + leftStart);
                         int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (left.Width - 1 - (((left.Width - 1) - leftStart) / 2));
                         float phi = Alpha * diffX;
 
@@ -621,6 +639,9 @@ namespace Frame.VrAibo
                     else if (!leftScanResult && rigthScanResult)
                     {
 
+                        Logger.Instance.LogInfo("RIGTH TURN");
+                        Logger.Instance.LogInfo("R " + rigthEnd);
+
                         int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (rigthEnd - ((rigthEnd - (rigth.Width-1)) / 2));
                         float phi = Alpha * diffX;
 
@@ -633,6 +654,8 @@ namespace Frame.VrAibo
                     }
                     else if (leftScanResult &&!rigthScanResult)
                     {
+
+                        Logger.Instance.LogInfo("T INTERSECTION");
                         leftIsOldPath = true;
                         rigthIsOld = true;
 
@@ -643,6 +666,7 @@ namespace Frame.VrAibo
                     }
                     else
                     {
+                        Logger.Instance.LogInfo("DEAD END");
                         //dead end reached              
                         //if (!movementConsenter.isReturning())
                         {
@@ -1260,7 +1284,9 @@ namespace Frame.VrAibo
             CvInvoke.cvSetImageCOI(channelRed.Ptr, 0);
 
 
-            
+
+           // Logger.Instance.LogInfo("Pos "+_vrAibo.Position);
+
                 if (picsTaken == 0)
                 {
 
@@ -1320,6 +1346,7 @@ namespace Frame.VrAibo
 
                    if (returnDone)
                    {
+                       Logger.Instance.LogInfo("RETURN IS DONE");
                        leftIsOldPath = true;
                        rigthIsOld = true;
                        moveBack = false;

@@ -431,6 +431,8 @@ namespace Frame.VrAibo
 
             Rgb referenceColor = img[heigth, center];
 
+            bool singleChange = false;
+
             bool isObj = isNotObject(img, referenceColor, center, heigth);
 
             if (!isObj)
@@ -446,11 +448,22 @@ namespace Frame.VrAibo
                 }
                 else
                 {
-                    LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(center, heigth), new System.Drawing.Point(center, heigth - i));
+                    //we allow a single change in color
+                    if (!singleChange)
+                    {
+                        singleChange = true;
+                        referenceColor = img[heigth - i, center];
+                    }
+                    else
+                    {
+                        LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(center, heigth), new System.Drawing.Point(center, heigth - i));
 
-                    img.Draw(ls, new Rgb(0, 255, 0), 2);
+                        img.Draw(ls, new Rgb(0, 255, 0), 2);
 
-                    return false;
+                        return false;
+                    }
+
+                   
                 }
             }
 
@@ -460,19 +473,33 @@ namespace Frame.VrAibo
             return true;
         }
 
-        public static bool scanForSidePathRigth(Image<Rgb, byte> img, int scanHeigth, int minSegmentLength,out int segmentEnd)
+
+        public static bool hasThatColor(Image<Rgb, byte> img, int scanHeigth, Rgb refColor)
+        {
+            for (int i = 0; i < img.Width; i++)
+            {
+                if (refColor.Blue == img[scanHeigth, i].Blue && refColor.Red == img[scanHeigth, i].Red && refColor.Green == img[scanHeigth, i].Green)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public static bool scanForSidePathRigth(Image<Rgb, byte> img, int scanHeigth, int minSegmentLength, out int segmentEnd, Rgb refColor)
         {
 
             int sameColorPixels = 0;
 
-            Rgb pathColor = img[scanHeigth, 0];
+            //Rgb pathColor = img[scanHeigth, 0];
 
 
             //the path we are intereted in should start at the rigth side of the image, if the path would lie in the center of the image the normal side image eval algo would have detected that path
             for (int i = 0; i < img.Width; i++)
             {
                 //check whether the pixel still is of the color we are looking for
-                if (pathColor.Blue == img[scanHeigth, i].Blue && pathColor.Red == img[scanHeigth, i].Red && pathColor.Green == img[scanHeigth, i].Green)
+                if (refColor.Blue == img[scanHeigth, i].Blue && refColor.Red == img[scanHeigth, i].Red && refColor.Green == img[scanHeigth, i].Green)
                 {
                     sameColorPixels++;
                 }
@@ -499,18 +526,18 @@ namespace Frame.VrAibo
         }
 
 
-        public static bool scanForSidePathLeft(Image<Rgb, byte> img, int scanHeigth, int minSegmentLength, out int segmentStart)
+        public static bool scanForSidePathLeft(Image<Rgb, byte> img, int scanHeigth, int minSegmentLength, out int segmentStart,Rgb refColor)
         {
             int sameColorPixels = 0;
 
-            Rgb pathColor = img[scanHeigth, img.Width - 1];
+            //Rgb pathColor = img[scanHeigth, img.Width - 1];
 
 
             //the path we are intereted in should start at the rigth side of the image, if the path would lie in the center of the image the normal side image eval algo would have detected that path
             for (int i = img.Width - 1; i > 0; i--)
             {
                 //check whether the pixel still is of the color we are looking for
-                if (pathColor.Blue == img[scanHeigth, i].Blue && pathColor.Red == img[scanHeigth, i].Red && pathColor.Green == img[scanHeigth, i].Green)
+                if (refColor.Blue == img[scanHeigth, i].Blue && refColor.Red == img[scanHeigth, i].Red && refColor.Green == img[scanHeigth, i].Green)
                 {
                     sameColorPixels++;
                 }

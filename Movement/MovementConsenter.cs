@@ -196,7 +196,6 @@ namespace Frame.VrAibo.Movement
 
                 if (currentNode.HasLeftTurn)
                 {
-                    Logger.Instance.LogInfo("THIS IS NOZ WHERE I SHOULD GO Left");
                     currentNode.HasLeftTurn = false;
                     //try left next
                     HandleMovement(0, 90);
@@ -236,12 +235,12 @@ namespace Frame.VrAibo.Movement
             if (firstMovementOnReturn)
             {
 
-                List<MovementStep> l = history.getAsList();
+              /*  List<MovementStep> l = history.getAsList();
 
                 for (int i = 0; i < l.Count; i++)
                 {
                     Logger.Instance.LogInfo("Step: "+l[i].Movement+" "+l[i].Rotation);
-                }
+                }*/
 
                     executedMovement = 0;
                 executedRotation = 180;
@@ -255,9 +254,6 @@ namespace Frame.VrAibo.Movement
             MovementStep step = history.pop();
 
             // Feed execute behavior with the inverse of the history
-
-            Logger.Instance.LogInfo("Redoing a step: " + step.Movement + " " + step.Rotation);
-
             //lastRotOnReturn = step.Rotation;
 
            

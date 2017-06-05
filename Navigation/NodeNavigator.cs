@@ -169,7 +169,7 @@ namespace Frame.VrAibo.Navigation
         /// </summary>
         public void createNewNodeAtCurrentPosition(bool hasLeftTurn = false, bool hasRigthTurn = false,bool hasFront = true)
         {
-            Logger.Instance.LogInfo("ADDING A POINT");
+            Logger.Instance.LogInfo("ADDING A NODE");
 
             Node newNode = new Node(CurrentRobotPosition,CurrentMovementHistory, _lastNode,false ,hasLeftTurn, hasRigthTurn,hasFront);
             _lastNode.Children.Add(newNode);
