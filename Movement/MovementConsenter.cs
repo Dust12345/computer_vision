@@ -39,6 +39,15 @@ namespace Frame.VrAibo.Movement
         private double lastRotOnReturn = 0;
         private bool didLastRot = false;
 
+        private bool requesteNewNode = false;
+        private bool nodeRequestL = false;
+        private bool nodeRequestR = false;
+        private bool nodeRequestF = false;
+
+        private bool validTarget = false;
+        private Vector2 estimatedTarget = new Vector2(0,0);
+
+
 
         
 
@@ -109,6 +118,14 @@ namespace Frame.VrAibo.Movement
             turnFromPath = (float)rotation;
         }
 
+        public void requestNewNode(bool left, bool rigth, bool front)
+        {
+           nodeRequestL = left; 
+            nodeRequestR = rigth;
+            nodeRequestF = front;
+            requesteNewNode = true;
+        }
+
         public void objectDetectionRequest(float movement, double rotation)
         {
             objectDetectionRequstedMovement = true;
@@ -128,6 +145,11 @@ namespace Frame.VrAibo.Movement
 
         private void handleSimplePathMovement(out float executedMovement, out float executedRotation)
         {
+
+
+
+            _navigator.createNewNodeAtCurrentPosition(nodeRequestL, nodeRequestR, nodeRequestF);
+            HandleMovement(movementFromPath, turnFromPath);    
 
             Logger.Instance.LogInfo("handle path");
             if (astimatedDistanceToObject == -1)
@@ -321,23 +343,25 @@ namespace Frame.VrAibo.Movement
             Logger.Instance.LogInfo("Exectute called");
 
             //check the simple cases, where only one requested movement
-            if (returnToLastNode)
+            if (returnToLastNode&& !validTarget)
             {
                 bool returnDone = handleReturnToLastNode(out executedMovement, out executedRotation);
                 _navigator.trackReverseMovement(executedMovement, executedRotation);
-
+                clearVars();
                 return returnDone;
             }
             else if (pathRequstedMovement && !objectDetectionRequstedMovement)
             {
                 handleSimplePathMovement(out executedMovement, out executedRotation);
                 _navigator.addMovement(executedMovement, executedRotation);
+                clearVars();
                 return false;
             }
             else if (!pathRequstedMovement && objectDetectionRequstedMovement)
             {
                 handleObjectDetectionMovement(out executedMovement, out executedRotation);
                 _navigator.addMovement(executedMovement, executedRotation);
+                clearVars();
                 return false;
             }
             else if (pathRequstedMovement && objectDetectionRequstedMovement)
@@ -347,15 +371,16 @@ namespace Frame.VrAibo.Movement
                 //executedRotation = 0;
                 handleBothRequest(out executedMovement, out executedRotation);
                 _navigator.addMovement(executedMovement, executedRotation);
+                clearVars();
                 return false;
             }
             else
             {
                 //disable this for now
-                executedMovement = 0;
+               /* executedMovement = 0;
                 executedRotation = 0;
 
-                return false;
+                return false;*/
 
                 //move to the last know point
                 Vector2 targetDest = new Vector2(0, 30);
@@ -395,21 +420,28 @@ namespace Frame.VrAibo.Movement
                     _navigator.addMovement(executedMovement, executedRotation);
                 }
 
-               
-
-
-
-               
+                clearVars();
+                return false;              
                
             }
 
             //reset the values
+         
+
+        }
+
+        private void clearVars()
+        {
             pathRequstedMovement = false;
             objectDetectionRequstedMovement = false;
             movementFromPath = 0;
             turnFromPath = 0;
             moveFromObjectDetection = 0;
             turnFromObjectDetection = 0;
+            requesteNewNode = false;
+            nodeRequestL = false;
+            nodeRequestR = false;
+            nodeRequestF = false;
         }
 
         internal void update()
