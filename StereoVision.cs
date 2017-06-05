@@ -97,6 +97,10 @@ namespace Frame.VrAibo
         private FrmImage leftWindow;
         private FrmImage rigthWindow;
 
+        private FrmImage frontWindowMask;
+        private FrmImage leftWindowMask;
+        private FrmImage rigthWindowMask;
+
         private Image<Rgb, byte> front;
         private Image<Rgb, byte> left;
         private Image<Rgb, byte> rigth;
@@ -242,6 +246,18 @@ namespace Frame.VrAibo
                                        GLab.VirtualAibo.VrAibo.SurfaceWidth,
                                        GLab.VirtualAibo.VrAibo.SurfaceHeight);
             rigthWindow = new FrmImage("Rigth",
+                                       GLab.VirtualAibo.VrAibo.SurfaceWidth,
+                                       GLab.VirtualAibo.VrAibo.SurfaceHeight);
+
+
+
+            frontWindowMask = new FrmImage("FrontMask",
+                                     GLab.VirtualAibo.VrAibo.SurfaceWidth,
+                                     GLab.VirtualAibo.VrAibo.SurfaceHeight);
+            leftWindowMask = new FrmImage("LeftMask",
+                                       GLab.VirtualAibo.VrAibo.SurfaceWidth,
+                                       GLab.VirtualAibo.VrAibo.SurfaceHeight);
+            rigthWindowMask = new FrmImage("RigthMask",
                                        GLab.VirtualAibo.VrAibo.SurfaceWidth,
                                        GLab.VirtualAibo.VrAibo.SurfaceHeight);
 
@@ -493,7 +509,7 @@ namespace Frame.VrAibo
                         //only way to move it forward
                         int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (lineEndFront - ((lineEndFront - lineStartFront) / 2));
                         float phi = Alpha * diffX;
-                        movementConsenter.pathDetectionRequest(AiboSpeed, phi);
+                        movementConsenter.pathDetectionRequest(AiboSpeed, phi,true);
                       
                     }
                     else
@@ -508,7 +524,7 @@ namespace Frame.VrAibo
 
                             //intersections goes both ways         
                             //move left first, on hard turns like this never move on the turn
-                            movementConsenter.pathDetectionRequest(0, 90);
+                            movementConsenter.pathDetectionRequest(0, 90,false);
                             leftIsOldPath = true;
                             rigthIsOld = true;
                           
@@ -524,7 +540,7 @@ namespace Frame.VrAibo
 
                            // nodeNavigator.createNewNodeAtCurrentPosition(false, false, true);
                             //intersection only goes to the left
-                            movementConsenter.pathDetectionRequest(0, 90 + phi);
+                            movementConsenter.pathDetectionRequest(0, 90 + phi,false);
                             leftIsOldPath = true;
                             rigthIsOld = true;
                         }
@@ -538,7 +554,7 @@ namespace Frame.VrAibo
 
                             nodeNavigator.createNewNodeAtCurrentPosition(false, false, true);
                             //intersection goes to the rigth
-                            movementConsenter.pathDetectionRequest(0, -90+phi);
+                            movementConsenter.pathDetectionRequest(0, -90+phi,false);
                             leftIsOldPath = true;
                             rigthIsOld = true;
                         }
@@ -605,7 +621,7 @@ namespace Frame.VrAibo
                         movementConsenter.requestNewNode(false, false, false);
 
                         //nodeNavigator.createNewNodeAtCurrentPosition(false, false, false);
-                        movementConsenter.pathDetectionRequest(0, 90 + phi);
+                        movementConsenter.pathDetectionRequest(0, 90 + phi,false);
 
                         leftIsOldPath = true;
                         rigthIsOld = true;
@@ -624,24 +640,21 @@ namespace Frame.VrAibo
 
                         //nodeNavigator.createNewNodeAtCurrentPosition(false, false, false);
                         //simple rigth turn
-                        movementConsenter.pathDetectionRequest(0, -90+phi);
+                        movementConsenter.pathDetectionRequest(0, -90+phi,false);
                         leftIsOldPath = true;
                         rigthIsOld = true;
                         return;
                     }
                     else if (leftScanResult &&!rigthScanResult)
                     {
-
+                        //T intersection
                         Logger.Instance.LogInfo("T INTERSECTION");
                         leftIsOldPath = true;
                         rigthIsOld = true;
 
                         movementConsenter.requestNewNode(false, true, true);
-
                         //nodeNavigator.createNewNodeAtCurrentPosition(false, true, false);
-                        movementConsenter.pathDetectionRequest(0, 90);
-                       
-                        //T intersection
+                        movementConsenter.pathDetectionRequest(0, 90,false);   
                     }
                     else
                     {
@@ -649,11 +662,13 @@ namespace Frame.VrAibo
                         //dead end reached              
                         //if (!movementConsenter.isReturning())
                         {
-                            movementConsenter.RequestReturnToLastNode();
-                            moveBack = true;
+                            bool granted = movementConsenter.RequestReturnToLastNode();
 
+                            if (granted)
+                            {
+                                moveBack = true;
+                            }              
                         }
-                       
                     }
 
                     //mc.RequestRotation(180);
@@ -665,148 +680,7 @@ namespace Frame.VrAibo
 
             return;
 
-        }    
-       
-
-        private void moveAroundObject()
-        {
-
-            Logger.Instance.LogInfo("-------------------------");
-
-            Vector2 target = new Vector2(0, 30);
-            Vector2 robotPos = nodeNavigator.CurrentRobotPosition;
-
-            Image<Gray, byte> maskFront = new Image<Gray, byte>(front.Size);
-            Image<Gray, byte> maskLeft = new Image<Gray, byte>(left.Size);
-            Image<Gray, byte> maskRight = new Image<Gray, byte>(rigth.Size);
-
-            int hueRange = 10;
-            int strctSize = 2;
-
-            //mask the objects
-
-            List<Hsv> colorsToMask = om.getColorsOfCloseObstacals(nodeNavigator.CurrentRobotPosition, 5);
-
-            ImageOperations.maskMultipleColors(front, out maskFront, colorsToMask, hueRange, strctSize);
-            ImageOperations.maskMultipleColors(left, out maskLeft, colorsToMask, hueRange, strctSize);
-            ImageOperations.maskMultipleColors(rigth, out maskRight, colorsToMask, hueRange, strctSize);
-
-
-            //check the fron image
-            bool frontStatus = ImageOperations.objectInside(maskFront, maskFront.Height / 2);
-            bool leftStatus = ImageOperations.objectInside(maskLeft, maskLeft.Height / 2);
-            bool rigthStatus = ImageOperations.objectInside(maskRight, maskRight.Height / 2);
-
-
-            //get the direction vector to the target
-            //Vector2 dirVct = getVectorTotarget(_vrAibo.Position, target);
-
-
-            Vector2 dirVct = VctOp.getVectorTotarget(robotPos, target);
-
-            Vector2 currentHeading = nodeNavigator.getCurrentHeading();
-
-            double angle = Math.Abs(VctOp.calcAngleBeteenVectors(currentHeading, dirVct));
-            double angle2 = VctOp.calcAngleBeteenVectors(currentHeading, dirVct);
-            bool clockwise = VctOp.isClockwise(currentHeading, dirVct);
-
-            //check the angle between the current and the direction we need to go
-            Logger.Instance.LogInfo("Current heading " + currentHeading);
-            Logger.Instance.LogInfo("Dir vector " + dirVct);
-            //Logger.Instance.LogInfo("Angle "+angle);
-            //Logger.Instance.LogInfo("curent rot " + currentRotation);
-
-            Logger.Instance.LogInfo("Angle signed " + angle2);
-
-
-
-            if (angle < 45)
-            {
-                Logger.Instance.LogInfo("Need to move front");
-                //we rougly need to move to the front
-                if (frontStatus)
-                {
-                    //object in the front img
-                    if (leftStatus && rigthStatus)
-                    {
-                        //bboth sides are blocked
-                    }
-                    else if (!rigthStatus)
-                    {
-                        Logger.Instance.LogInfo("Turn rigth");
-                        //left is free
-                        //_vrAibo.Turn(-90);
-                        movementConsenter.objectDetectionRequest(0, -90);
-                    }
-                    else
-                    {
-                        Logger.Instance.LogInfo("Turn L");
-                        //rigth is free
-                        //_vrAibo.Turn(+90);
-                        movementConsenter.objectDetectionRequest(0, 90);
-                    }
-                }
-                else
-                {
-                    //_vrAibo.Walk(AiboSpeed);
-                    movementConsenter.objectDetectionRequest(AiboSpeed, 0);
-                }
-            }
-            else if (angle > 45 && angle < 135)
-            {
-
-                Logger.Instance.LogInfo("need to move to a side");
-                //we need to check the side images
-                if (clockwise)
-                {
-                    Logger.Instance.LogInfo("need to turn left");
-                    //we need to move left
-                    if (leftStatus)
-                    {
-
-                        //object to the left
-                        //_vrAibo.Walk(AiboSpeed);
-                        movementConsenter.objectDetectionRequest(AiboSpeed, 0);
-                    }
-                    else
-                    {
-                        //left ok
-                        //_vrAibo.Turn(+90);
-                        movementConsenter.objectDetectionRequest(0, 90);
-
-                    }
-                }
-                else
-                {
-
-                    Logger.Instance.LogInfo("need to turn rigth");
-                    //we need to move rigth
-                    if (rigthStatus)
-                    {
-                        Logger.Instance.LogInfo("R is blocked");
-                        //object to the rigth
-                        //_vrAibo.Walk(AiboSpeed);
-                        movementConsenter.objectDetectionRequest(AiboSpeed, 0);
-
-                    }
-                    else
-                    {
-                        //Logger.Instance.LogInfo("R is free");
-                        //rigth ok
-                        //_vrAibo.Turn(-90);
-                        movementConsenter.objectDetectionRequest(0, -90);
-
-                    }
-                }
-            }
-
-            frontWindow.SetImage(maskFront);
-            leftWindow.SetImage(maskLeft);
-            rigthWindow.SetImage(maskRight);
-
-            //Logger.Instance.LogInfo("-------------------------");
-
-        }
+        }       
 
         private void moveAroundObject2()
         {
@@ -818,12 +692,14 @@ namespace Frame.VrAibo
             int hueRange = 10;
             int strctSize = 5;
 
+            int objectSearchRange = 5;
+
             int scanHeigth = front.Height / 2;
 
 
             //mask the objects
 
-            List<Hsv> colorsToMask = om.getColorsOfCloseObstacals(nodeNavigator.CurrentRobotPosition, 8);
+            List<Hsv> colorsToMask = om.getColorsOfCloseObstacals(nodeNavigator.CurrentRobotPosition, objectSearchRange);
 
             ImageOperations.maskMultipleColors(front, out maskFront, colorsToMask, hueRange, strctSize);
             ImageOperations.maskMultipleColors(left, out maskLeft, colorsToMask, hueRange, strctSize);
@@ -915,9 +791,9 @@ namespace Frame.VrAibo
 
             }
 
-            frontWindow.SetImage(maskFront);
-            leftWindow.SetImage(maskLeft);
-            rigthWindow.SetImage(maskRight);
+            frontWindowMask.SetImage(maskFront);
+            leftWindowMask.SetImage(maskLeft);
+            rigthWindowMask.SetImage(maskRight);
 
 
         }

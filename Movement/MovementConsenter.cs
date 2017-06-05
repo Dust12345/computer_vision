@@ -20,6 +20,8 @@ namespace Frame.VrAibo.Movement
         private bool pathRequstedMovement = false;
         private float movementFromPath = 0;
         private float turnFromPath = 0;
+        private bool pathWasFrontRequest = false;
+
 
         private bool objectDetectionRequstedMovement = false;
         private float moveFromObjectDetection = 0;
@@ -46,6 +48,9 @@ namespace Frame.VrAibo.Movement
 
         private bool validTarget = false;
         private Vector2 estimatedTarget = new Vector2(0,0);
+        private Vector2 posOfEstimation = new Vector2(0, 0);
+
+        private double targetThreshold = 1;
 
 
 
@@ -61,11 +66,21 @@ namespace Frame.VrAibo.Movement
             _currentLimiter = new MovementLimiter(robot, new MovementStep(0.0f, 0.0f));
         }
 
-        public void RequestReturnToLastNode()
+        public bool RequestReturnToLastNode()
         {
-            returnToLastNode = true;
-            firstMovementOnReturn = true;
-            didLastRot = false;
+            if (!validTarget)
+            {
+                returnToLastNode = true;
+                firstMovementOnReturn = true;
+                didLastRot = false;
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+
+           
         }
 
         private void HandleReverseMovement(float moveAmount, float turnAmount)
@@ -111,11 +126,12 @@ namespace Frame.VrAibo.Movement
             HandleMovement(0.0f, amount);
         }
 
-        public void pathDetectionRequest(float movement, double rotation)
+        public void pathDetectionRequest(float movement, double rotation,bool requestByFront)
         {
             pathRequstedMovement = true;
             movementFromPath = movement;
             turnFromPath = (float)rotation;
+            pathWasFrontRequest = requestByFront;
         }
 
         public void requestNewNode(bool left, bool rigth, bool front)
@@ -145,10 +161,10 @@ namespace Frame.VrAibo.Movement
 
         private void handleSimplePathMovement(out float executedMovement, out float executedRotation)
         {
-
-
-
-            _navigator.createNewNodeAtCurrentPosition(nodeRequestL, nodeRequestR, nodeRequestF);
+            if (requesteNewNode)
+            {
+                _navigator.createNewNodeAtCurrentPosition(nodeRequestL, nodeRequestR, nodeRequestF);
+            }          
             HandleMovement(movementFromPath, turnFromPath);    
 
             Logger.Instance.LogInfo("handle path");
@@ -183,10 +199,12 @@ namespace Frame.VrAibo.Movement
         private void handleObjectDetectionMovement(out float executedMovement, out float executedRotation)
         {
             Logger.Instance.LogInfo("handle just object");
-            HandleMovement(moveFromObjectDetection, turnFromObjectDetection);
-
-            executedMovement = moveFromObjectDetection;
-            executedRotation = turnFromObjectDetection;
+            //since we always try to move aroun an object on the left side, we cann follow the path detection if is also points left
+         
+                HandleMovement(moveFromObjectDetection, turnFromObjectDetection);
+                executedMovement = moveFromObjectDetection;
+                executedRotation = turnFromObjectDetection;    
+           
         }
 
         private bool handleReturnToLastNode(out float executedMovement, out float executedRotation)
@@ -294,7 +312,77 @@ namespace Frame.VrAibo.Movement
 
             //check if both movement request point in the same direction, if so we can just move as the path algo suggests
 
-            double angleDiff = Math.Abs(turnFromPath - turnFromObjectDetection);
+          
+
+            //in case the path movement wants to turn the same way the as the object detection we favor the path
+            bool perfromPath = false;
+
+
+            if (turnFromObjectDetection < 0)
+            {
+                //in case object dec want to turn rigth
+                if (turnFromPath < turnFromObjectDetection)
+                {
+                    perfromPath = true;
+                }
+                else
+                {
+                    perfromPath = false;
+                }
+            }
+            else
+            {
+                //in case object dec want to turn left
+                if (turnFromPath < turnFromObjectDetection)
+                {
+                    perfromPath = false;
+                }
+                else
+                {
+                    perfromPath = true;
+                }
+            }
+
+            if (perfromPath)
+            {
+                HandleMovement(movementFromPath, turnFromPath);
+                executedMovement = movementFromPath;
+                executedRotation = turnFromPath;
+            }
+            else
+            {
+                //only attempt to set a target of a conflict exists
+
+                //set a target were we expect the path to be after we are clear of the object, if we havnt done so aleady
+                if (!validTarget)
+                {
+                    //we asume the path continiues about 15 units infront of us
+                    Vector2 vct = new Vector2(0, 30);
+                    vct = VctOp.calcMovementVector(_navigator.CurrentRobotRotation, vct);
+                    vct.X += _navigator.CurrentRobotPosition.X;
+                    vct.Y += _navigator.CurrentRobotPosition.Y;
+
+                    estimatedTarget = vct;
+                    validTarget = true;
+
+                    posOfEstimation = _navigator.CurrentRobotPosition;
+
+                }
+
+
+                HandleMovement(moveFromObjectDetection, turnFromObjectDetection);
+                executedMovement = moveFromObjectDetection;
+                executedRotation = turnFromObjectDetection;
+            }
+
+            //move according to the object detection
+          /*  HandleMovement(moveFromObjectDetection, turnFromObjectDetection);
+            executedMovement = moveFromObjectDetection;
+            executedRotation = turnFromObjectDetection;*/
+            return;
+
+
+       /*     double angleDiff = Math.Abs(turnFromPath - turnFromObjectDetection);
 
             if (angleDiff < angleDiffThreshold)
             {
@@ -309,7 +397,7 @@ namespace Frame.VrAibo.Movement
                 executedMovement = moveFromObjectDetection;
                 executedRotation = turnFromObjectDetection;
                 return;
-            }
+            }*/
 
 #if false 
             //obkect was detected
@@ -342,6 +430,14 @@ namespace Frame.VrAibo.Movement
         {
             Logger.Instance.LogInfo("Exectute called");
 
+
+            //in case we are searching for a target, we only accept path movement request if they were issiued by the front
+
+            if (validTarget && !pathWasFrontRequest)
+            {
+                pathRequstedMovement = false;
+            }
+
             //check the simple cases, where only one requested movement
             if (returnToLastNode&& !validTarget)
             {
@@ -352,6 +448,12 @@ namespace Frame.VrAibo.Movement
             }
             else if (pathRequstedMovement && !objectDetectionRequstedMovement)
             {
+                //since we found a path there is no need for a target, if we had one to beginn with
+                if (validTarget)
+                {
+                    validTarget = false;
+                }
+
                 handleSimplePathMovement(out executedMovement, out executedRotation);
                 _navigator.addMovement(executedMovement, executedRotation);
                 clearVars();
@@ -382,10 +484,17 @@ namespace Frame.VrAibo.Movement
 
                 return false;*/
 
-                //move to the last know point
-                Vector2 targetDest = new Vector2(0, 30);
+                //check if we need a new estimated target
+                double dist = VctOp.calcDistance(_navigator.CurrentRobotPosition, estimatedTarget);
 
-                Vector2 dirVct = VctOp.getVectorTotarget(_navigator.CurrentRobotPosition, targetDest);
+                if (dist < targetThreshold)
+                {
+                    //calc a new target
+                    estimatedTarget = posOfEstimation;
+                }
+              
+
+                Vector2 dirVct = VctOp.getVectorTotarget(_navigator.CurrentRobotPosition, estimatedTarget);
                 Logger.Instance.LogInfo("NO INFO");
 
                 Logger.Instance.LogInfo("Dir vct " + dirVct);
@@ -442,6 +551,7 @@ namespace Frame.VrAibo.Movement
             nodeRequestL = false;
             nodeRequestR = false;
             nodeRequestF = false;
+            pathWasFrontRequest = false;
         }
 
         internal void update()
