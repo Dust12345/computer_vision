@@ -57,6 +57,7 @@ namespace Frame.VrAibo
 
     enum hsvEvalReturn { No_Object, Object_with_border, Object_no_border };
 
+
     internal class StereoVision : IPluginClient
     {
         private const float AiboSpeed = 0.3f;
@@ -546,9 +547,11 @@ namespace Frame.VrAibo
                         }
                         else
                         {
-
+                            Logger.Instance.LogInfo("PATH ON THE R DETECTED");
                             int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (lineEndRigth - ((lineEndRigth - lineStartRigth) / 2));
                             float phi = Alpha * diffX;
+
+                            Logger.Instance.LogInfo("TURN AMOUNT: " + phi);
 
                             movementConsenter.requestNewNode(false, false, true);
 
@@ -710,15 +713,12 @@ namespace Frame.VrAibo
 
             hsvEvalReturn frontStatus = evalMask2(maskFront, scanHeigth, out objectEnd, out objectToLeft);
 
-            int objectEndR = 0;
-            bool objectToLeftR;
-
             //hsvEvalReturn rStatus = evalMask2(maskRight, scanHeigth, out objectEndR, out objectToLeftR);
 
 
             //hsvEvalReturn frontStatus = evalMask(maskFront, scanHeigth, out objectEnd, out objectToLeft);
 
-            Logger.Instance.LogInfo("Object status " + frontStatus);
+          
 
             if (frontStatus == hsvEvalReturn.No_Object)
             {
@@ -729,7 +729,7 @@ namespace Frame.VrAibo
             {
                 //with no border
                // movementConsenter.objectDetectionRequest()
-                movementConsenter.objectDetectionRequest(0, 20);
+                movementConsenter.objectDetectionRequest(0, 20, stateOfDetObject.Center);
                 //_vrAibo.Turn(20);
             }
             else
@@ -743,11 +743,11 @@ namespace Frame.VrAibo
 
                     if (phi > 15 || phi < -15)
                     {
-                        movementConsenter.objectDetectionRequest(0, phi);
+                        movementConsenter.objectDetectionRequest(0, phi, stateOfDetObject.Left);
                     }
                     else
                     {
-                        movementConsenter.objectDetectionRequest(AiboSpeed, phi);
+                        movementConsenter.objectDetectionRequest(AiboSpeed, phi, stateOfDetObject.Left);
                     }
 
                     frontHeadPos = 15;
@@ -761,25 +761,21 @@ namespace Frame.VrAibo
                 else
                 {
 
-                    Logger.Instance.LogInfo("object is on the R");
-
-                    Logger.Instance.LogInfo("abject end " + objectEnd);
+                  
 
                     //object to the rigth
                     int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth - (GLab.VirtualAibo.VrAibo.SurfaceWidth / 5)) - objectEnd;
                     float phi = Alpha * diffX;
 
-                    Logger.Instance.LogInfo("diffx " + diffX);
-
-                    Logger.Instance.LogInfo("Phi " + phi);
+                
 
                     if (phi > 15 || phi < -15)
                     {
-                        movementConsenter.objectDetectionRequest(0, phi);
+                        movementConsenter.objectDetectionRequest(0, phi, stateOfDetObject.Rigth);
                     }
                     else
                     {
-                        movementConsenter.objectDetectionRequest(AiboSpeed, phi);
+                        movementConsenter.objectDetectionRequest(AiboSpeed, phi, stateOfDetObject.Rigth);
                     }
 
 

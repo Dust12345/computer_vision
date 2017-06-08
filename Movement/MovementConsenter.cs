@@ -10,6 +10,9 @@ using Microsoft.Xna.Framework;
 
 namespace Frame.VrAibo.Movement
 {
+
+    enum stateOfDetObject { Left, Rigth, Center};
+
     class MovementConsenter
     {
         private GLab.VirtualAibo.VrAibo _robot;
@@ -52,6 +55,7 @@ namespace Frame.VrAibo.Movement
 
         private double targetThreshold = 1;
 
+        private stateOfDetObject objState;
 
 
         
@@ -142,11 +146,12 @@ namespace Frame.VrAibo.Movement
             requesteNewNode = true;
         }
 
-        public void objectDetectionRequest(float movement, double rotation)
+        public void objectDetectionRequest(float movement, double rotation, stateOfDetObject objectState)
         {
             objectDetectionRequstedMovement = true;
             moveFromObjectDetection = movement;
             turnFromObjectDetection = (float)rotation;
+            objState = objectState;
         }
 
         public bool busy()
@@ -317,31 +322,100 @@ namespace Frame.VrAibo.Movement
             //in case the path movement wants to turn the same way the as the object detection we favor the path
             bool perfromPath = false;
 
-
-            if (turnFromObjectDetection < 0)
+            if (objState != stateOfDetObject.Center)
             {
-                //in case object dec want to turn rigth
-                if (turnFromPath < turnFromObjectDetection)
+                if (objState == stateOfDetObject.Left)
                 {
-                    perfromPath = true;
+
+                    //object to the left
+                    if (turnFromObjectDetection < 0 && turnFromPath < 0)
+                    {
+                        //both point away from the object
+                        if (turnFromObjectDetection < turnFromPath)
+                        {
+                            //in case the object turn request a greater movement we follow it, to avoid a collision
+                            perfromPath = false;
+                        }else{
+                            perfromPath = true;
+
+                        }
+
+                    }
+                    else if (turnFromObjectDetection > 0)
+                    {
+                        //object turn request a turn towards the object, follow the path unless it request a larger turn towards the object
+                        if (turnFromPath < turnFromObjectDetection)
+                        {
+                            perfromPath = true;
+                        }
+                        else
+                        {
+                            perfromPath = false;
+                        }
+
+                    }
+                    else
+                    {
+                        //object detection points away from the object and path towards it, follow the object detection
+                        perfromPath = false;
+                    }
                 }
                 else
                 {
-                    perfromPath = false;
+
+                    Logger.Instance.LogInfo("OBJECT TO THE R");
+
+                  //object to the rigth, do the same thing as for left
+                    //object to the left
+                    if (turnFromObjectDetection > 0 && turnFromPath > 0)
+                    {
+
+                        Logger.Instance.LogInfo("BOTH POINT AWAY");
+
+                        Logger.Instance.LogInfo("Object: " + turnFromObjectDetection + " P: " + turnFromPath);
+
+                        //both point away from the object
+                        if (turnFromObjectDetection > turnFromPath)
+                        {
+                            //in case the object turn request a greater movement we follow it, to avoid a collision
+                            perfromPath = false;
+                        }
+                        else
+                        {
+                            perfromPath = true;
+
+                        }
+
+                    }
+                    else if (turnFromObjectDetection < 0)
+                    {
+                        Logger.Instance.LogInfo("Turn to object");
+
+                        Logger.Instance.LogInfo("Object: " + turnFromObjectDetection + " P: " + turnFromPath);
+
+                        if (turnFromPath > turnFromObjectDetection)
+                        {
+                            perfromPath = true;
+                        }
+                        else
+                        {
+                            perfromPath = false;
+                        }
+
+                    }
+                    else
+                    {
+                        //object detection points away from the object and path towards it, follow the object detection
+                        perfromPath = false;
+                    }
                 }
             }
             else
             {
-                //in case object dec want to turn left
-                if (turnFromPath < turnFromObjectDetection)
-                {
-                    perfromPath = false;
-                }
-                else
-                {
-                    perfromPath = true;
-                }
+                //in case the object is in the center we follow the object detection
+                perfromPath = false;
             }
+
 
             if (perfromPath)
             {
@@ -428,9 +502,6 @@ namespace Frame.VrAibo.Movement
 
         public bool execute(out float executedMovement, out float executedRotation)
         {
-            Logger.Instance.LogInfo("Exectute called");
-
-
             //in case we are searching for a target, we only accept path movement request if they were issiued by the front
 
             if (validTarget && !pathWasFrontRequest)
@@ -495,19 +566,12 @@ namespace Frame.VrAibo.Movement
               
 
                 Vector2 dirVct = VctOp.getVectorTotarget(_navigator.CurrentRobotPosition, estimatedTarget);
-                Logger.Instance.LogInfo("NO INFO");
-
-                Logger.Instance.LogInfo("Dir vct " + dirVct);
-                Logger.Instance.LogInfo("R pos " + _navigator.CurrentRobotPosition);
-
+             
                 Vector2 currentHeading = _navigator.getCurrentHeading();
 
                 double angle = Math.Abs(VctOp.calcAngleBeteenVectors(currentHeading, dirVct));
                 double angle2 = VctOp.calcAngleBeteenVectors(currentHeading, dirVct);
                 bool clockwise = VctOp.isClockwise(currentHeading, dirVct);
-
-
-                Logger.Instance.LogInfo("angle " + angle2);
 
                 angle2 = angle2 / 4;
 
