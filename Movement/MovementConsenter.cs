@@ -60,6 +60,11 @@ namespace Frame.VrAibo.Movement
         private double distThresholdForNodes = 5;
         private double turnDistThreshold = 0.5;
 
+        private int pathSeenInRow =0;
+        private int targetDeleteThreshold = 3;
+
+      
+
 
         
 
@@ -72,6 +77,8 @@ namespace Frame.VrAibo.Movement
             // TODO dummy assignment to initialize field
             _currentLimiter = new MovementLimiter(robot, new MovementStep(0.0f, 0.0f));
         }
+
+      
 
         public bool RequestReturnToLastNode()
         {
@@ -475,6 +482,21 @@ namespace Frame.VrAibo.Movement
                 perfromPath = false;
             }
 
+            //set a target were we expect the path to be after we are clear of the object, if we havnt done so aleady
+            if (!validTarget)
+            {
+                //we asume the path continiues about 15 units infront of us
+                Vector2 vct = new Vector2(0, 30);
+                vct = VctOp.calcMovementVector(_navigator.CurrentRobotRotation, vct);
+                vct.X += _navigator.CurrentRobotPosition.X;
+                vct.Y += _navigator.CurrentRobotPosition.Y;
+
+                estimatedTarget = vct;
+                validTarget = true;
+
+                posOfEstimation = _navigator.CurrentRobotPosition;
+
+            }
 
             if (perfromPath)
             {
@@ -489,21 +511,7 @@ namespace Frame.VrAibo.Movement
                 Logger.Instance.LogInfo("Valid target = "+validTarget);
                 //only attempt to set a target of a conflict exists
 
-                //set a target were we expect the path to be after we are clear of the object, if we havnt done so aleady
-                if (!validTarget)
-                {
-                    //we asume the path continiues about 15 units infront of us
-                    Vector2 vct = new Vector2(0, 30);
-                    vct = VctOp.calcMovementVector(_navigator.CurrentRobotRotation, vct);
-                    vct.X += _navigator.CurrentRobotPosition.X;
-                    vct.Y += _navigator.CurrentRobotPosition.Y;
-
-                    estimatedTarget = vct;
-                    validTarget = true;
-
-                    posOfEstimation = _navigator.CurrentRobotPosition;
-
-                }
+              
 
 
                 HandleMovement(moveFromObjectDetection, turnFromObjectDetection);
@@ -568,7 +576,13 @@ namespace Frame.VrAibo.Movement
 
             if (validTarget && !pathWasFrontRequest)
             {
+                Logger.Instance.LogInfo("WAS DELETED BY THIS");
                 pathRequstedMovement = false;
+            }
+
+            if (validTarget && !pathRequstedMovement)
+            {
+                pathSeenInRow = 0;
             }
 
             //check the simple cases, where only one requested movement
@@ -597,7 +611,13 @@ namespace Frame.VrAibo.Movement
                 //since we found a path there is no need for a target, if we had one to beginn with
                 if (validTarget)
                 {
-                    validTarget = false;
+                    pathSeenInRow++;
+                    if (pathSeenInRow >= targetDeleteThreshold)
+                    {
+                        Logger.Instance.LogInfo("VALID PATH WAS FOUND");
+                        validTarget = false;
+                    }
+                    
                 }
 
                 handleSimplePathMovement(out executedMovement, out executedRotation);
@@ -642,20 +662,16 @@ namespace Frame.VrAibo.Movement
                 {
                     //calc a new target
                     estimatedTarget = posOfEstimation;
-                }
-              
+                }              
 
-                Vector2 dirVct = VctOp.getVectorTotarget(_navigator.CurrentRobotPosition, estimatedTarget);
-             
+                Vector2 dirVct = VctOp.getVectorTotarget(_navigator.CurrentRobotPosition, estimatedTarget);             
                 Vector2 currentHeading = _navigator.getCurrentHeading();
 
                 double angle = Math.Abs(VctOp.calcAngleBeteenVectors(currentHeading, dirVct));
                 double angle2 = VctOp.calcAngleBeteenVectors(currentHeading, dirVct);
                 bool clockwise = VctOp.isClockwise(currentHeading, dirVct);
 
-                angle2 = angle2 / 4;
-
-                
+                angle2 = angle2 / 4;               
 
                 if (angle2 < 5 && angle2 > -5)
                 {

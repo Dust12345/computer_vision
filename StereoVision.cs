@@ -378,7 +378,7 @@ namespace Frame.VrAibo
 
      
 
-        private void moveBasedOnImage()
+        private void pathMovement()
         {
             Logger.Instance.LogInfo("----------------------------------");
 
@@ -392,7 +392,7 @@ namespace Frame.VrAibo
 
            int center = (lineEndFront - ((lineEndFront - lineStartFront) / 2));          
 
-            Rgb referenceColor = front[scanHeigth, center];
+            Rgb referenceColorFront = front[scanHeigth, center];
 
            // isNotObject(front, referenceColor, center, scanHeigth);
 
@@ -400,11 +400,35 @@ namespace Frame.VrAibo
             //check if the return values suggest that ther is a path
             if (lineStartFront != -1 && lineEndFront != -1 &&  lineStartFront != 255)
             {
-                
 
+                //Rgb referenceColor = front[scanHeigth, center];
                 LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(lineStartFront, scanHeigth), new System.Drawing.Point(lineEndFront, scanHeigth));
 
-                frontOK = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance);
+                int c = (lineEndFront - ((lineEndFront - lineStartFront) / 2));
+
+                frontOK = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance, c, referenceColorFront);
+
+                //to make the fron scan more rubust we perform aditional scans if he first one fails
+                if (!frontOK)
+                {
+                    int startCenterDiff = c - lineStartFront;
+                    int newScanCenterLeft = lineStartFront + (startCenterDiff / 2);
+                    bool leftScann = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance, newScanCenterLeft, referenceColorFront);
+
+                    int newScanCenterRigth = c + (startCenterDiff / 2);
+                    bool rigthScann = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance, newScanCenterRigth, referenceColorFront);
+
+                    if (leftScann)
+                    {
+                        lineEndFront = c;
+                        frontOK = true;
+                    }
+                    else if(rigthScann)
+                    {
+                        lineStartFront = c;
+                        frontOK = true;
+                    }
+                }
 
                 front.Draw(ls, new Rgb(0, 0, 255), 2);
             }
@@ -420,7 +444,9 @@ namespace Frame.VrAibo
             //check if the return values suggest that ther is a path
             if (pathFound && lineStartLeft != -1 && lineEndLeft != -1 && ImageOperations.isSidePath(lineStartLeft, lineEndLeft, left.Width))
             {
-                LeftOK = ImageOperations.checkIfvalidPath(lineStartLeft, lineEndLeft, scanHeigth, left, 20);
+                int c = (lineEndLeft - ((lineEndLeft - lineStartLeft) / 2));
+                Rgb referenceColorLeft = left[scanHeigth, c];
+                LeftOK = ImageOperations.checkIfvalidPath(lineStartLeft, lineEndLeft, scanHeigth, left, 20, c, referenceColorLeft);
 
                 LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(lineStartLeft, scanHeigth), new System.Drawing.Point(lineEndLeft, scanHeigth));
                 left.Draw(ls, new Rgb(0, 0, 255), 2);
@@ -432,13 +458,13 @@ namespace Frame.VrAibo
             bool rigthOK = false;
             pathFound = ImageOperations.scanForPath(rigth, scanHeigth, out lineStartRigth, out lineEndRigth,pathMinThreshold);
 
-            Logger.Instance.LogInfo("R: " + lineStartRigth + " to " + lineEndRigth);
-
 
             //check if the return values suggest that ther is a path
             if (pathFound && lineStartRigth != -1 && lineEndRigth != -1 && ImageOperations.isSidePath(lineStartRigth, lineEndRigth, rigth.Width))
             {
-                rigthOK = ImageOperations.checkIfvalidPath(lineStartRigth, lineEndRigth, scanHeigth, rigth, 20);
+                int c = (lineEndRigth - ((lineEndRigth - lineStartRigth) / 2));
+                Rgb referenceColorRigth = rigth[scanHeigth, c];
+                rigthOK = ImageOperations.checkIfvalidPath(lineStartRigth, lineEndRigth, scanHeigth, rigth, 20, c, referenceColorRigth);
                 LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(lineStartRigth, scanHeigth), new System.Drawing.Point(lineEndRigth, scanHeigth));
                 rigth.Draw(ls, new Rgb(0, 0, 255), 2);
             }
@@ -450,11 +476,8 @@ namespace Frame.VrAibo
             }
 
             //hasThatColor
-            bool leftHasColor = ImageOperations.hasThatColor(left, scanHeigth+20, referenceColor);
-            bool rigthHasColor = ImageOperations.hasThatColor(rigth, scanHeigth+20, referenceColor);
-
-
-            Logger.Instance.LogInfo("Old: L " + leftIsOldPath + " R " + rigthIsOld);
+            bool leftHasColor = ImageOperations.hasThatColor(left, scanHeigth+20, referenceColorFront);
+            bool rigthHasColor = ImageOperations.hasThatColor(rigth, scanHeigth+20, referenceColorFront);
 
             if (leftIsOldPath)
             {
@@ -577,8 +600,8 @@ namespace Frame.VrAibo
                     int leftStart = -1;
                     int rigthEnd = -1;
 
-                    bool leftScanResult = ImageOperations.scanForSidePathLeft(left, sideScanHeigth, 10, out leftStart,referenceColor);
-                    bool rigthScanResult = ImageOperations.scanForSidePathRigth(rigth, sideScanHeigth, 10, out rigthEnd,referenceColor);
+                    bool leftScanResult = ImageOperations.scanForSidePathLeft(left, sideScanHeigth, 10, out leftStart,referenceColorFront);
+                    bool rigthScanResult = ImageOperations.scanForSidePathRigth(rigth, sideScanHeigth, 10, out rigthEnd,referenceColorFront);
 
 
                     if (closeToNode)
@@ -1161,7 +1184,7 @@ namespace Frame.VrAibo
                     //Logger.Instance.LogInfo("All Pics taken");
                     if (!moveBack)
                     {
-                        moveBasedOnImage();
+                        pathMovement();
                     }
                    
                     doStereoVisionStuff(front, disp);

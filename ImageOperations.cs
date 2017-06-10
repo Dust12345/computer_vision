@@ -425,14 +425,9 @@ namespace Frame.VrAibo
 
 
 
-        public static bool checkIfvalidPath(int start, int end, int heigth, Image<Rgb, byte> img, int scanDist)
-        {
-            int center = (end - ((end - start) / 2));
-
-            Rgb referenceColor = img[heigth, center];
-
+        public static bool checkIfvalidPath(int start, int end, int heigth, Image<Rgb, byte> img, int scanDist, int center, Rgb referenceColor)
+        { 
             bool singleChange = false;
-
             bool isObj = isNotObject(img, referenceColor, center, heigth);
 
             if (!isObj)
