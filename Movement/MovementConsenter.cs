@@ -170,35 +170,12 @@ namespace Frame.VrAibo.Movement
             {
                 _navigator.createNewNodeAtCurrentPosition(nodeRequestL, nodeRequestR, nodeRequestF);
             }          
-            HandleMovement(movementFromPath, turnFromPath);    
+            HandleMovement(movementFromPath, turnFromPath);
 
-            Logger.Instance.LogInfo("handle path");
-            if (astimatedDistanceToObject == -1)
-            {
-                //no objecz detected, just move
-                HandleMovement(movementFromPath, turnFromPath);                
-                executedMovement = movementFromPath;
-                executedRotation = turnFromPath;
-                return;
-            }
-            else
-            {
-                //obkect was detected
-                if (astimatedDistanceToObject < movementFromPath)
-                {
-                    //do nothing
-                    executedMovement = 0;
-                    executedRotation = 0;
-                }
-                else
-                {
-                    astimatedDistanceToObject -= movementFromPath;
-                    HandleMovement(movementFromPath, turnFromPath);
-                    executedMovement = movementFromPath;
-                    executedRotation = turnFromPath;
-                    return;
-                }
-            }
+            executedMovement = movementFromPath;
+            executedRotation = turnFromPath;
+
+  
         }
 
         private void handleObjectDetectionMovement(out float executedMovement, out float executedRotation)
