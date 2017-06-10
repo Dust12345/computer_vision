@@ -423,7 +423,21 @@ namespace Frame.VrAibo
         }
 
 
+        public static bool colorUnchangingScanDown(Image<Rgb, byte> img, int xStart, int yStart, Rgb refColor)
+        {
+            for (int i = yStart; i < img.Height; i++)
+            {
+                if (refColor.Blue == img[i, xStart].Blue && refColor.Red == img[i, xStart].Red && refColor.Green == img[i, xStart].Green)
+                {
+                }
+                else
+                {
+                    return false;
+                }
+            }
 
+            return true;
+         }
 
         public static bool checkIfvalidPath(int start, int end, int heigth, Image<Rgb, byte> img, int scanDist, int center, Rgb referenceColor)
         { 

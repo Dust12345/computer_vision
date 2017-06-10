@@ -614,7 +614,6 @@ namespace Frame.VrAibo.Movement
                     pathSeenInRow++;
                     if (pathSeenInRow >= targetDeleteThreshold)
                     {
-                        Logger.Instance.LogInfo("VALID PATH WAS FOUND");
                         validTarget = false;
                     }
                     

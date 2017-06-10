@@ -110,7 +110,11 @@ namespace Frame.VrAibo.Navigation
             double distToClosest = -1;
 
             //to do so, add up the distance overall moved in its movement history
-            List<MovementStep> steps = _lastNode.MovementHistory.getAsList();
+
+            
+            //List<MovementStep> steps = _lastNode.MovementHistory.getAsList();
+
+            List<MovementStep> steps = CurrentMovementHistory.getAsList();
 
             double overallDistMoved = 0;
 
@@ -125,6 +129,11 @@ namespace Frame.VrAibo.Navigation
             {
                 closestNode = _lastNode;
                 distToClosest = distToNode;
+            }
+
+            if (_lastNode.IsRootNode)
+            {
+                return closestNode;
             }
 
             bool potentialCycleFound = false;

@@ -169,7 +169,7 @@ namespace Frame.VrAibo
             //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(48.447f, 100.187f) }; 
 
              //{X:48,44476 Y:100,1873}
-            //_vrAibo.Rotation = -90;
+            _vrAibo.Rotation = -180;
 
 
             //{X:-0,4840283 Y:50,83811}
@@ -388,6 +388,9 @@ namespace Frame.VrAibo
             double nodeCheckTheshold = 2;
             int scanHeigth = GLab.VirtualAibo.VrAibo.SurfaceHeight - 10;
 
+            //percentage based
+            int scanDownSidePadding = 20;
+
             ImageOperations.scanForPath(front, scanHeigth, out lineStartFront, out lineEndFront,pathMinThreshold);
 
            int center = (lineEndFront - ((lineEndFront - lineStartFront) / 2));          
@@ -448,6 +451,20 @@ namespace Frame.VrAibo
                 Rgb referenceColorLeft = left[scanHeigth, c];
                 LeftOK = ImageOperations.checkIfvalidPath(lineStartLeft, lineEndLeft, scanHeigth, left, 20, c, referenceColorLeft);
 
+                if (LeftOK)
+                {
+                    //make an extra check to avoid detecting ground patches
+                    int padding = ((lineEndFront - lineStartLeft) / 100) * scanDownSidePadding;
+
+                    bool returnStatusL = ImageOperations.colorUnchangingScanDown(left, padding + lineStartLeft, scanHeigth+1,referenceColorLeft);
+                    bool returnStatusR = ImageOperations.colorUnchangingScanDown(left, lineEndLeft - padding, scanHeigth + 1, referenceColorLeft);
+
+                    if (!(returnStatusL && returnStatusR))
+                    {
+                        LeftOK = false;
+                    }
+                }
+
                 LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(lineStartLeft, scanHeigth), new System.Drawing.Point(lineEndLeft, scanHeigth));
                 left.Draw(ls, new Rgb(0, 0, 255), 2);
             }
@@ -465,6 +482,22 @@ namespace Frame.VrAibo
                 int c = (lineEndRigth - ((lineEndRigth - lineStartRigth) / 2));
                 Rgb referenceColorRigth = rigth[scanHeigth, c];
                 rigthOK = ImageOperations.checkIfvalidPath(lineStartRigth, lineEndRigth, scanHeigth, rigth, 20, c, referenceColorRigth);
+
+
+                if (rigthOK)
+                {
+                    //make an extra check to avoid detecting ground patches
+                    int padding = ((lineEndRigth - lineStartRigth) / 100) * scanDownSidePadding;
+
+                    bool returnStatusL = ImageOperations.colorUnchangingScanDown(rigth, padding + lineStartRigth, scanHeigth + 1, referenceColorRigth);
+                    bool returnStatusR = ImageOperations.colorUnchangingScanDown(rigth, lineEndRigth - padding, scanHeigth + 1, referenceColorRigth);
+
+                    if (!(returnStatusL && returnStatusR))
+                    {
+                        rigthOK = false;
+                    }
+                }
+
                 LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(lineStartRigth, scanHeigth), new System.Drawing.Point(lineEndRigth, scanHeigth));
                 rigth.Draw(ls, new Rgb(0, 0, 255), 2);
             }
