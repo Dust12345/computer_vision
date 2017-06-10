@@ -24,7 +24,7 @@ namespace Frame.VrAibo.Navigation
             CurrentRobotRotation = 0;
 
             CurrentMovementHistory = new MovementHistory();
-            _headNode = new Node(new Vector2(0,0),null, null, true);
+            _headNode = new Node(new Vector2(0,0),0,null, null, true);
             _lastNode = _headNode;
         }
 
@@ -101,6 +101,76 @@ namespace Frame.VrAibo.Navigation
             return false;
         }
 
+        public Node nodeReachedbyCycle(double nodeThreshold)
+        {
+            //first check the special case that the node we reched via a cycle is the last one
+
+
+            Node closestNode = null;
+            double distToClosest = -1;
+
+            //to do so, add up the distance overall moved in its movement history
+            List<MovementStep> steps = _lastNode.MovementHistory.getAsList();
+
+            double overallDistMoved = 0;
+
+            for (int i = 0; i < steps.Count; i++)
+            {
+                overallDistMoved += steps[i].Movement;
+            }
+
+            double distToNode = VctOp.calcDistance(CurrentRobotPosition, _lastNode.PosOfNode);
+
+            if (overallDistMoved > nodeThreshold && distToNode < nodeThreshold)
+            {
+                closestNode = _lastNode;
+                distToClosest = distToNode;
+            }
+
+            bool potentialCycleFound = false;
+            //reference distance is used to determine of a potential cycle was detected. This is done by comparing the distances of the following nodes with this one
+            //if one of the following distances is smaller then this one, we assume it could be a cycle
+            double refDist = distToNode;
+
+            Node n = _lastNode.Parent;
+
+            while (!n.IsRootNode)
+            {
+                 double dist = VctOp.calcDistance(CurrentRobotPosition, n.PosOfNode);
+
+                if (!potentialCycleFound)
+                {
+                    if (dist < refDist)
+                    {
+                        potentialCycleFound = true;
+                    }
+                }
+
+                if (potentialCycleFound)
+                {
+                    if (dist < nodeThreshold)
+                    {
+                        if (closestNode == null)
+                        {
+                            //no potential cycle node found
+                            closestNode = n;
+                            distToClosest = dist;
+                        }
+                        else
+                        {
+                            //check if this node is closer than the one we already saw
+                            if (dist < distToNode)
+                            {
+                                closestNode = n;
+                            }
+                        }
+                    }
+                }
+                n = n.Parent;
+            }
+            return closestNode;
+        }
+
         public bool isCloseToNode(double distanceThreshold)
         {
             Node n = _lastNode;            
@@ -171,7 +241,7 @@ namespace Frame.VrAibo.Navigation
         {
             Logger.Instance.LogInfo("ADDING A NODE");
 
-            Node newNode = new Node(CurrentRobotPosition,CurrentMovementHistory, _lastNode,false ,hasLeftTurn, hasRigthTurn,hasFront);
+            Node newNode = new Node(CurrentRobotPosition,CurrentRobotRotation,CurrentMovementHistory, _lastNode,false ,hasLeftTurn, hasRigthTurn,hasFront);
             _lastNode.Children.Add(newNode);
 
             CurrentMovementHistory.clear();

@@ -547,12 +547,8 @@ namespace Frame.VrAibo
                         }
                         else
                         {
-                            Logger.Instance.LogInfo("PATH ON THE R DETECTED");
                             int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (lineEndRigth - ((lineEndRigth - lineStartRigth) / 2));
                             float phi = Alpha * diffX;
-
-                            Logger.Instance.LogInfo("TURN AMOUNT: " + phi);
-
                             movementConsenter.requestNewNode(false, false, true);
 
                             nodeNavigator.createNewNodeAtCurrentPosition(false, false, true);
@@ -614,8 +610,6 @@ namespace Frame.VrAibo
 
                     if (leftScanResult && !rigthScanResult)
                     {
-                        Logger.Instance.LogInfo("LEFT TURN");
-                        Logger.Instance.LogInfo("L " + leftStart);
                         int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (left.Width - 1 - (((left.Width - 1) - leftStart) / 2));
                         float phi = Alpha * diffX;
 
@@ -632,9 +626,6 @@ namespace Frame.VrAibo
                     }
                     else if (!leftScanResult && rigthScanResult)
                     {
-
-                        Logger.Instance.LogInfo("RIGTH TURN");
-                        Logger.Instance.LogInfo("R " + rigthEnd);
 
                         int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (rigthEnd - ((rigthEnd - (rigth.Width-1)) / 2));
                         float phi = Alpha * diffX;
@@ -667,10 +658,10 @@ namespace Frame.VrAibo
                         {
                             bool granted = movementConsenter.RequestReturnToLastNode();
 
-                            if (granted)
+                           /* if (granted)
                             {
                                 moveBack = true;
-                            }              
+                            }    */          
                         }
                     }
 
@@ -1193,7 +1184,14 @@ namespace Frame.VrAibo
                     float executedMovement;
                     float executedRotation;
 
-                   bool returnDone = movementConsenter.execute(out executedMovement, out executedRotation);
+                    bool returnRequestGranted = false;
+
+                    bool returnDone = movementConsenter.execute(out executedMovement, out executedRotation, out returnRequestGranted);
+
+                    if (returnRequestGranted)
+                    {
+                        moveBack = true;
+                    }
 
                    if (returnDone)
                    {

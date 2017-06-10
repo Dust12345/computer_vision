@@ -57,6 +57,9 @@ namespace Frame.VrAibo.Movement
 
         private stateOfDetObject objState;
 
+        private double distThresholdForNodes = 5;
+        private double turnDistThreshold = 0.5;
+
 
         
 
@@ -119,17 +122,7 @@ namespace Frame.VrAibo.Movement
         {
             return returnToLastNode;
         }
-        public bool RequestMovement(float amount)
-        {
-            return HandleMovement(amount, 0.0f);
-        }
-
-        public void RequestRotation(float amount)
-        {
-            // TODO: conditions
-            HandleMovement(0.0f, amount);
-        }
-
+     
         public void pathDetectionRequest(float movement, double rotation,bool requestByFront)
         {
             pathRequstedMovement = true;
@@ -164,16 +157,105 @@ namespace Frame.VrAibo.Movement
             return !_currentLimiter.Done;
         }
 
+
+
         private void handleSimplePathMovement(out float executedMovement, out float executedRotation)
         {
             if (requesteNewNode)
             {
-                _navigator.createNewNodeAtCurrentPosition(nodeRequestL, nodeRequestR, nodeRequestF);
-            }          
-            HandleMovement(movementFromPath, turnFromPath);
+                //check if the node is already know
 
-            executedMovement = movementFromPath;
-            executedRotation = turnFromPath;
+                bool nodeKnow = _navigator.isCloseToNode(distThresholdForNodes);
+
+                Node node = _navigator.nodeReachedbyCycle(distThresholdForNodes);
+
+                if (node != null)
+                {
+                    //node is already know
+                    //for now we simple assume that it is the last node we detected
+                   
+
+                    //check the distabce
+
+                    double dist = VctOp.calcDistance(_navigator.CurrentRobotPosition, node.PosOfNode);
+                    if (dist > turnDistThreshold)
+                    {
+                        //if the dist is to great we move in first, because of we turn from to far away we migth not see the other paths
+                        Vector2 dirVct = VctOp.getVectorTotarget(_navigator.CurrentRobotPosition, node.PosOfNode);
+                        Vector2 currentHeading = _navigator.getCurrentHeading();                      
+                        double angle = VctOp.calcAngleBeteenVectors(currentHeading, dirVct);
+
+                        HandleMovement((float)dist, (float)angle);
+
+                        executedMovement = (float)dist;
+                        executedRotation = (float)angle;
+                        return;
+
+
+
+                    }
+
+                    //calc the diference in rotation between us and the heading of the node
+                    double rotDiff = node.NodeHeading - _navigator.CurrentRobotRotation;
+
+                    //now decide which way we sould turn next at this node
+                    if (node.HasLeftTurn)
+                    {
+                        node.HasLeftTurn = false;
+                        HandleMovement(0, (float)(rotDiff+90.0));
+
+                        executedMovement = 0;
+                        executedRotation = (float)(rotDiff + 90.0);
+                        return;
+
+                    }
+                    else if (node.HasRigthTurn)
+                    {
+                        node.HasRigthTurn = false;
+                        HandleMovement(0, (float)(rotDiff - 90.0));
+
+                        executedMovement = 0;
+                        executedRotation = (float)(rotDiff - 90.0);
+                        return;
+                    }
+                    else if (node.HasFront)
+                    {
+                        node.HasFront = false;
+                        HandleMovement(0, (float)(rotDiff));
+
+                        executedMovement = 0;
+                        executedRotation = (float)(rotDiff);
+                        return;
+                    }
+                    else
+                    {
+                        //dead end
+                        Logger.Instance.LogInfo("KNOWN DEAD END, WHAT SHOULD WE DO ?");
+                        executedMovement = 0;
+                        executedRotation = 0;
+                        return;
+                    }
+                }
+                else
+                {
+                    //its a new node
+                    _navigator.createNewNodeAtCurrentPosition(nodeRequestL, nodeRequestR, nodeRequestF);
+                    HandleMovement(movementFromPath, turnFromPath);
+
+                    executedMovement = movementFromPath;
+                    executedRotation = turnFromPath;
+                    return;
+                }
+            }
+            else
+            {
+                HandleMovement(movementFromPath, turnFromPath);
+
+                executedMovement = movementFromPath;
+                executedRotation = turnFromPath;
+                return;
+            }    
+         
 
   
         }
@@ -396,12 +478,15 @@ namespace Frame.VrAibo.Movement
 
             if (perfromPath)
             {
+                Logger.Instance.LogInfo("PERFORM PATH MOVEMENT");
                 HandleMovement(movementFromPath, turnFromPath);
                 executedMovement = movementFromPath;
                 executedRotation = turnFromPath;
             }
             else
             {
+                Logger.Instance.LogInfo("PERFORM OBJECT MOVEMENT");
+                Logger.Instance.LogInfo("Valid target = "+validTarget);
                 //only attempt to set a target of a conflict exists
 
                 //set a target were we expect the path to be after we are clear of the object, if we havnt done so aleady
@@ -477,7 +562,7 @@ namespace Frame.VrAibo.Movement
 #endif
         }
 
-        public bool execute(out float executedMovement, out float executedRotation)
+        public bool execute(out float executedMovement, out float executedRotation, out bool moveBackAccepted)
         {
             //in case we are searching for a target, we only accept path movement request if they were issiued by the front
 
@@ -489,9 +574,22 @@ namespace Frame.VrAibo.Movement
             //check the simple cases, where only one requested movement
             if (returnToLastNode&& !validTarget)
             {
+                Logger.Instance.LogInfo("RETURN TO LAST NODE");
+
                 bool returnDone = handleReturnToLastNode(out executedMovement, out executedRotation);
                 _navigator.trackReverseMovement(executedMovement, executedRotation);
                 clearVars();
+
+                if (returnDone)
+                {
+                    moveBackAccepted = false;
+                }
+                else
+                {
+                    moveBackAccepted = true;
+                }
+
+               
                 return returnDone;
             }
             else if (pathRequstedMovement && !objectDetectionRequstedMovement)
@@ -505,6 +603,7 @@ namespace Frame.VrAibo.Movement
                 handleSimplePathMovement(out executedMovement, out executedRotation);
                 _navigator.addMovement(executedMovement, executedRotation);
                 clearVars();
+                moveBackAccepted = false;
                 return false;
             }
             else if (!pathRequstedMovement && objectDetectionRequstedMovement)
@@ -512,6 +611,7 @@ namespace Frame.VrAibo.Movement
                 handleObjectDetectionMovement(out executedMovement, out executedRotation);
                 _navigator.addMovement(executedMovement, executedRotation);
                 clearVars();
+                moveBackAccepted = false;
                 return false;
             }
             else if (pathRequstedMovement && objectDetectionRequstedMovement)
@@ -522,6 +622,7 @@ namespace Frame.VrAibo.Movement
                 handleBothRequest(out executedMovement, out executedRotation);
                 _navigator.addMovement(executedMovement, executedRotation);
                 clearVars();
+                moveBackAccepted = false;
                 return false;
             }
             else
@@ -531,6 +632,8 @@ namespace Frame.VrAibo.Movement
                 executedRotation = 0;
 
                 return false;*/
+
+                Logger.Instance.LogInfo("Handle blocked path");
 
                 //check if we need a new estimated target
                 double dist = VctOp.calcDistance(_navigator.CurrentRobotPosition, estimatedTarget);
@@ -571,6 +674,7 @@ namespace Frame.VrAibo.Movement
                 }
 
                 clearVars();
+                moveBackAccepted = false;
                 return false;              
                
             }

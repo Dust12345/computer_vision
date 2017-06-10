@@ -16,6 +16,7 @@ namespace Frame.VrAibo.Navigation
         public bool HasRigthTurn { get; set; }
         public bool HasFront { get; set; }
         public Vector2 PosOfNode { get; private set; }
+        public double NodeHeading { get; private set; }
 
         public Vector2 Coordinate { get; private set; }
         public MovementHistory MovementHistory { get; private set; }
@@ -25,7 +26,7 @@ namespace Frame.VrAibo.Navigation
 
         public bool IsRootNode { get; private set; }
 
-        public Node(Vector2 pos, MovementHistory movementHistory = null, Node parent = null, bool setAsRoot = false, bool hasLeftTurn = false, bool hasRigthTurn = false, bool hasFront = true)
+        public Node(Vector2 pos,double heading,MovementHistory movementHistory = null, Node parent = null, bool setAsRoot = false, bool hasLeftTurn = false, bool hasRigthTurn = false, bool hasFront = true)
         {
 
             Logger.Instance.LogInfo("Creating a node with letf" + hasLeftTurn + " r " + hasRigthTurn);
@@ -59,6 +60,8 @@ namespace Frame.VrAibo.Navigation
             HasRigthTurn = hasRigthTurn;
             HasFront = hasFront;
             PosOfNode = pos;
+
+            NodeHeading = heading;
 
             Children = new List<Node>();
 
