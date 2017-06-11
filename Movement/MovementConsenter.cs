@@ -670,6 +670,8 @@ namespace Frame.VrAibo.Movement
                 double angle2 = VctOp.calcAngleBeteenVectors(currentHeading, dirVct);
                 bool clockwise = VctOp.isClockwise(currentHeading, dirVct);
 
+                Logger.Instance.LogInfo("Angle to estimated target " + angle2);
+
                 angle2 = angle2 / 4;               
 
                 if (angle2 < 5 && angle2 > -5)

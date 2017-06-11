@@ -55,7 +55,7 @@ namespace Frame.VrAibo
         }
     }
 
-    enum hsvEvalReturn { No_Object, Object_with_border, Object_no_border };
+    enum hsvEvalReturn { No_Object, Object_with_border, Object_no_border,Objects_with_gap };
 
 
     internal class StereoVision : IPluginClient
@@ -739,7 +739,7 @@ namespace Frame.VrAibo
             Image<Gray, byte> maskRight = new Image<Gray, byte>(rigth.Size);
 
             //params
-            int hueRange = 10;
+            int hueRange = 16;
             int strctSize = 5;
 
             int objectSearchRange = 5;
@@ -755,31 +755,55 @@ namespace Frame.VrAibo
             ImageOperations.maskMultipleColors(left, out maskLeft, colorsToMask, hueRange, strctSize);
             ImageOperations.maskMultipleColors(rigth, out maskRight, colorsToMask, hueRange, strctSize);
 
+            int objectStart = 0;
             int objectEnd = 0;
             bool objectToLeft;
 
-            hsvEvalReturn frontStatus = evalMask2(maskFront, scanHeigth, out objectEnd, out objectToLeft);
+            hsvEvalReturn frontStatus = evalMask2(maskFront, scanHeigth, out objectEnd, out objectStart, out objectToLeft);
 
             //hsvEvalReturn rStatus = evalMask2(maskRight, scanHeigth, out objectEndR, out objectToLeftR);
 
 
             //hsvEvalReturn frontStatus = evalMask(maskFront, scanHeigth, out objectEnd, out objectToLeft);
 
+            if (frontStatus == hsvEvalReturn.Objects_with_gap)
+            {
+
+                Logger.Instance.LogInfo("abject with gap ");
+                frontHeadPos = 0;
+                //we aim for the center of the gap
+                int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (objectEnd - ((objectEnd - objectStart) / 2));
+                float phi = Alpha * diffX;
+
+                //homing in on a gap can be tricky, so we dont move while turning in a significant way
+                if (phi < -5 || phi > 5)
+                {
+                    movementConsenter.objectDetectionRequest(0, phi, stateOfDetObject.Center);
+                }
+                else
+                {
+                    movementConsenter.objectDetectionRequest(AiboSpeed, phi, stateOfDetObject.Center);
+                }
+                
+                //return;
+
+            }
           
 
             if (frontStatus == hsvEvalReturn.No_Object)
             {
-               
+                frontHeadPos = 0;
                // return;
             }
             else if (frontStatus == hsvEvalReturn.Object_no_border)
             {
+                frontHeadPos = 0;
                 //with no border
                // movementConsenter.objectDetectionRequest()
                 movementConsenter.objectDetectionRequest(0, 20, stateOfDetObject.Center);
                 //_vrAibo.Turn(20);
             }
-            else
+            else if (frontStatus == hsvEvalReturn.Object_with_border)
             {
                 //object with border
                 if (objectToLeft)
@@ -799,7 +823,7 @@ namespace Frame.VrAibo
 
                     frontHeadPos = 15;
 
-                    Logger.Instance.LogInfo("Phi " + phi);
+                    //Logger.Instance.LogInfo("Phi " + phi);
 
                     //_vrAibo.Turn(phi);
                  
@@ -841,12 +865,14 @@ namespace Frame.VrAibo
 
         }
 
-        private hsvEvalReturn evalMask2(Image<Gray, byte> mask, int scanHeigth, out int objectEnd, out bool objectToLeft)
+        private hsvEvalReturn evalMask2(Image<Gray, byte> mask, int scanHeigth, out int objectEnd, out int objectStart,out bool objectToLeft)
         {
             List<Segment> objectSegments = new List<Segment>();
             bool onObject = 0 < mask.Data[scanHeigth, 0,0];           
 
             int newSegemntStart = 0;
+
+            int minGapSize = 30;
 
             for (int i = 0; i < mask.Width; i++)
             {
@@ -883,6 +909,7 @@ namespace Frame.VrAibo
                 {
                     Logger.Instance.LogInfo("No object detected");
                     objectEnd = 0;
+                    objectStart = -1;
                     objectToLeft = false;
                     return hsvEvalReturn.No_Object;
                 }
@@ -894,6 +921,7 @@ namespace Frame.VrAibo
                 if (objectSegments[0].start == 0 && objectSegments[0].end== mask.Width)
                 {
                     objectEnd = 0;
+                    objectStart = -1;
                     objectToLeft = true;
                     return hsvEvalReturn.Object_no_border;
                 }
@@ -908,12 +936,14 @@ namespace Frame.VrAibo
                     {
                         objectEnd = objectSegments[0].end;
                         objectToLeft = true;
+                        objectStart = -1;
                         return hsvEvalReturn.Object_with_border;
                     }
                     else
                     {
                         objectEnd = objectSegments[0].start;
                         objectToLeft = false;
+                        objectStart = -1;
                         return hsvEvalReturn.Object_with_border;
                     }
                 }
@@ -937,32 +967,47 @@ namespace Frame.VrAibo
                     //calc distance to image center
                     int dist = Math.Abs(center - imageCenter);
 
-                    if (closestDist == -1)
-                    {
-                        //first gap we see
-                        closestDist = dist;
-                        closestStart = objectSegments[i - 1].end;
-                        closestEnd = objectSegments[i].start;
+                    //check the size of the gap, very small gaps will be ignored
+                    int gapSize = objectSegments[i].start - objectSegments[i - 1].end;
 
-                    }
-                    else
+                    if (gapSize > minGapSize)
                     {
-                        if (dist < closestDist)
+                        if (closestDist == -1)
                         {
+                            //first gap we see
                             closestDist = dist;
                             closestStart = objectSegments[i - 1].end;
                             closestEnd = objectSegments[i].start;
+
                         }
-                    }
+                        else
+                        {
+                            if (dist < closestDist)
+                            {
+                                closestDist = dist;
+                                closestStart = objectSegments[i - 1].end;
+                                closestEnd = objectSegments[i].start;
+                            }
+                        }
+                    }              
+                }
+
+                //check for the possibility that multiple object were found, but no gap that was large enough
+                if (closestDist == -1)
+                {
+                    objectEnd = -1;
+                    objectToLeft = false;
+                    objectStart = -1;                   
+                    return hsvEvalReturn.Object_no_border;
                 }
 
                 objectEnd = closestEnd;
                 objectToLeft = false;
-
+                objectStart = closestStart;
                 Logger.Instance.LogInfo("Object to the rigth, with the end at " + objectEnd);
 
-                return hsvEvalReturn.Object_with_border;
-
+                return hsvEvalReturn.Objects_with_gap;
+                //return hsvEvalReturn.Object_with_border;
 
 
             }
@@ -1187,6 +1232,7 @@ namespace Frame.VrAibo
 
                 if (picsTaken == 0)
                 {
+                    Logger.Instance.LogInfo("HEAD POS WHILE TAKING FRONT " + _vrAibo.HeadYaw);
 
                     StereoSGBM sgbm = new StereoSGBM(0, 16, 0, 0, 0, -1, 0, 7, 50, 1, StereoSGBM.Mode.SGBM);
 
