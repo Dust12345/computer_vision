@@ -121,7 +121,7 @@ namespace Frame.VrAibo
         private FrmImage stuff;
         private FrmImage distanceDB;
 
-        int pathMinThreshold = 80;
+        int pathMinThreshold = 70;
 
 
         Image<Gray, short> disp;
@@ -165,15 +165,19 @@ namespace Frame.VrAibo
 
             // Creates a new Virtual Aibo
             //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.4f, 35) };
-           _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.2f, 31.25f) }; //up test red
+           //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.2f, 31.25f) }; //up test red
 
             //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(-0.047f, 50.66f) }; //yellow
 
             //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(48.447f, 100.187f) }; 
 
-             //{X:48,44476 Y:100,1873}
-            _vrAibo.Rotation = -180;
+            _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(48.45f, 100.25f) }; //up test red
 
+             //{X:48,44476 Y:100,1873}
+            _vrAibo.Rotation = -90;
+
+
+            //s {X:38,75077 Y:100,428}
 
             //{X:-0,4840283 Y:50,83811}
 
@@ -425,12 +429,10 @@ namespace Frame.VrAibo
                 //to make the fron scan more rubust we perform aditional scans if he first one fails
                 if (!frontOK)
                 {
-                    int startCenterDiff = c - lineStartFront;
-                    int newScanCenterLeft = lineStartFront + (startCenterDiff / 2);
-                    bool leftScann = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance, newScanCenterLeft, referenceColorFront,false,ref referenceColorFront);
-
-                    int newScanCenterRigth = c + (startCenterDiff / 2);
-                    bool rigthScann = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance, newScanCenterRigth, referenceColorFront,false,ref referenceColorFront);
+                    int padding = ((lineEndFront - lineStartFront) / 100) * 10;                  
+                    bool leftScann = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance, lineStartFront+padding, referenceColorFront,false,ref referenceColorFront);
+                                     
+                    bool rigthScann = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance, lineEndFront-padding, referenceColorFront,false,ref referenceColorFront);
 
                     if (leftScann)
                     {

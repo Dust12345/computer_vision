@@ -65,7 +65,7 @@ namespace Frame.VrAibo
             _cube.WorldMatrix *= Matrix.CreateTranslation(0, 0.5f, 0);
             _cube.WorldMatrix *= Matrix.CreateScale(4, 4, 4);
             _cube.WorldMatrix *= Matrix.CreateTranslation(10, 0, -10);
-            AddGeometricPrimitve(_cube);
+            //AddGeometricPrimitve(_cube);
             // Add an obstacle
             PlatonicSolidFactory psf2 = new PlatonicSolidFactory(XnaRenderer.Instance);
             _cube = psf2.CreateGeometricPrimitive(PlatonicSolid.Hexahedron, Color.Bisque);
@@ -73,13 +73,13 @@ namespace Frame.VrAibo
             _cube.WorldMatrix *= Matrix.CreateScale(6, 4, 1);
             _cube.WorldMatrix *= Matrix.CreateRotationY(3.14f/4.0f);
             _cube.WorldMatrix *= Matrix.CreateTranslation(-2.5f, 0, 17);
-            AddGeometricPrimitve(_cube);
+            //AddGeometricPrimitve(_cube);
             _cube = psf2.CreateGeometricPrimitive(PlatonicSolid.Hexahedron, Color.Bisque);
             _cube.WorldMatrix *= Matrix.CreateTranslation(0, 0.5f, 0);
             _cube.WorldMatrix *= Matrix.CreateScale(6, 4, 1);
             _cube.WorldMatrix *= Matrix.CreateRotationY(-3.14f / 4.0f);
             _cube.WorldMatrix *= Matrix.CreateTranslation(2.5f, 0, 17);
-            AddGeometricPrimitve(_cube);
+            //AddGeometricPrimitve(_cube);
         }
     }
 }
