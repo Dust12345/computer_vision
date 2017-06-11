@@ -111,6 +111,9 @@ namespace Frame.VrAibo
 
         private FrmImage processedDB;
 
+        Rgb referenceColorFront;
+        private bool initialSetDone = false;
+
         int picsTaken = 0;
 
         private bool justReturnedFromTrackBack = false;
@@ -391,11 +394,19 @@ namespace Frame.VrAibo
             //percentage based
             int scanDownSidePadding = 20;
 
+
+         
+
             ImageOperations.scanForPath(front, scanHeigth, out lineStartFront, out lineEndFront,pathMinThreshold);
 
-           int center = (lineEndFront - ((lineEndFront - lineStartFront) / 2));          
-
-            Rgb referenceColorFront = front[scanHeigth, center];
+           int center = (lineEndFront - ((lineEndFront - lineStartFront) / 2));
+           //inital set in the front scan
+           if (!initialSetDone)
+           {
+               referenceColorFront = front[scanHeigth, center];
+               initialSetDone = true;
+           }
+         
 
            // isNotObject(front, referenceColor, center, scanHeigth);
 
@@ -409,17 +420,17 @@ namespace Frame.VrAibo
 
                 int c = (lineEndFront - ((lineEndFront - lineStartFront) / 2));
 
-                frontOK = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance, c, referenceColorFront);
+                frontOK = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance, c, referenceColorFront,true,ref referenceColorFront);
 
                 //to make the fron scan more rubust we perform aditional scans if he first one fails
                 if (!frontOK)
                 {
                     int startCenterDiff = c - lineStartFront;
                     int newScanCenterLeft = lineStartFront + (startCenterDiff / 2);
-                    bool leftScann = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance, newScanCenterLeft, referenceColorFront);
+                    bool leftScann = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance, newScanCenterLeft, referenceColorFront,false,ref referenceColorFront);
 
                     int newScanCenterRigth = c + (startCenterDiff / 2);
-                    bool rigthScann = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance, newScanCenterRigth, referenceColorFront);
+                    bool rigthScann = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance, newScanCenterRigth, referenceColorFront,false,ref referenceColorFront);
 
                     if (leftScann)
                     {
@@ -449,7 +460,7 @@ namespace Frame.VrAibo
             {
                 int c = (lineEndLeft - ((lineEndLeft - lineStartLeft) / 2));
                 Rgb referenceColorLeft = left[scanHeigth, c];
-                LeftOK = ImageOperations.checkIfvalidPath(lineStartLeft, lineEndLeft, scanHeigth, left, 20, c, referenceColorLeft);
+                LeftOK = ImageOperations.checkIfvalidPath(lineStartLeft, lineEndLeft, scanHeigth, left, 20, c, referenceColorLeft,false,ref referenceColorLeft);
 
                 if (LeftOK)
                 {
@@ -481,7 +492,7 @@ namespace Frame.VrAibo
             {
                 int c = (lineEndRigth - ((lineEndRigth - lineStartRigth) / 2));
                 Rgb referenceColorRigth = rigth[scanHeigth, c];
-                rigthOK = ImageOperations.checkIfvalidPath(lineStartRigth, lineEndRigth, scanHeigth, rigth, 20, c, referenceColorRigth);
+                rigthOK = ImageOperations.checkIfvalidPath(lineStartRigth, lineEndRigth, scanHeigth, rigth, 20, c, referenceColorRigth,false,ref referenceColorRigth);
 
 
                 if (rigthOK)

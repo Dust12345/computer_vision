@@ -35,7 +35,7 @@ namespace Frame.VrAibo
 	{
 		private List<Obstacle> knowObstacals;
 
-		private double minObjectDistance = 15;
+		private double minObjectDistance = 10;
 
 		private double minColorDist = 5;
 

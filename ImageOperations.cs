@@ -6,6 +6,7 @@ using Emgu.CV;
 using System.Drawing;
 using Emgu.CV.Structure;
 using GLab.Core.Forms;
+using GLab.Core;
 
 namespace Frame.VrAibo
 {
@@ -439,14 +440,23 @@ namespace Frame.VrAibo
             return true;
          }
 
-        public static bool checkIfvalidPath(int start, int end, int heigth, Image<Rgb, byte> img, int scanDist, int center, Rgb referenceColor)
+        public static bool checkIfvalidPath(int start, int end, int heigth, Image<Rgb, byte> img, int scanDist, int center, Rgb referenceColor,bool allowSingeColorChange,ref Rgb returnRefColor)
         { 
             bool singleChange = false;
             bool isObj = isNotObject(img, referenceColor, center, heigth);
 
+            int scanDistMultForColorChange = 5;
+
+
+
             if (!isObj)
             {
                 return false;
+            }
+
+            if (allowSingeColorChange)
+            {
+                Logger.Instance.LogInfo("SCAN DIST FOR FRONT "+scanDist);
             }
 
             for (int i = 0; i < scanDist; i++)
@@ -457,9 +467,13 @@ namespace Frame.VrAibo
                 }
                 else
                 {
-                    //we allow a single change in color
-                    if (!singleChange)
+                    //we allow a single change in color or maybe not all the time
+                    if (!singleChange && allowSingeColorChange && i>0)
                     {
+
+                       //to make sure that we dont change our ref color to some random shit off the path we have do drasticly increase the scan distance
+                        scanDist = scanDist * scanDistMultForColorChange;
+
                         singleChange = true;
                         referenceColor = img[heigth - i, center];
                     }
@@ -468,7 +482,6 @@ namespace Frame.VrAibo
                         LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(center, heigth), new System.Drawing.Point(center, heigth - i));
 
                         img.Draw(ls, new Rgb(0, 255, 0), 2);
-
                         return false;
                     }
 
@@ -477,7 +490,7 @@ namespace Frame.VrAibo
             }
 
             LineSegment2D ls1 = new LineSegment2D(new System.Drawing.Point(center, heigth), new System.Drawing.Point(center, heigth - scanDist));
-
+            returnRefColor = referenceColor;
             img.Draw(ls1, new Rgb(0, 0, 255), 2);
             return true;
         }
