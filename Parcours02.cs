@@ -76,7 +76,7 @@ namespace Frame.VrAibo
             t.Color = Color.DarkGreen;
             t.WorldMatrix *= Matrix.CreateTranslation(0.0f, 0.25f, 0.0f);
             float w = 4;
-            float h = 4;
+            float h = 6;
             t.WorldMatrix *= Matrix.CreateScale(new Vector3(w, h, w));
             t.WorldMatrix *=
             Matrix.CreateTranslation(new Vector3(-8.0f,0f, -5.0f));
