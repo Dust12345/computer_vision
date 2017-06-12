@@ -63,6 +63,7 @@ namespace Frame.VrAibo.Movement
         private int pathSeenInRow =0;
         private int targetDeleteThreshold = 3;
 
+        Stack<Vector2> targetStack;
       
 
 
@@ -73,6 +74,8 @@ namespace Frame.VrAibo.Movement
             astimatedDistanceToObject = -1;
             _robot = robot;
             _navigator = navigator;
+
+            targetStack = new Stack<Vector2>();
 
             // TODO dummy assignment to initialize field
             _currentLimiter = new MovementLimiter(robot, new MovementStep(0.0f, 0.0f));
@@ -570,6 +573,82 @@ namespace Frame.VrAibo.Movement
 #endif
         }
 
+
+        private bool handleNavPointStuff(out float executedMovement, out float executedRotation, out bool moveBackAccepted)
+        {
+            Logger.Instance.LogInfo("Handle nav point stuff");
+
+            //check if we have a valid target
+            if (!validTarget)
+            {
+                //targetStack.Push();
+                //make one...
+                validTarget = true;
+            }
+
+            //check if we need a new estimated target
+            double dist = VctOp.calcDistance(_navigator.CurrentRobotPosition, estimatedTarget);
+
+            if (dist < targetThreshold)
+            {
+                //calc a new target if we are to close             
+
+                if (targetStack.Count != 0)
+                {
+                    estimatedTarget = targetStack.Pop();
+                }
+                else
+                {
+                    estimatedTarget = posOfEstimation;
+                }
+            }
+
+            Vector2 dirVct = VctOp.getVectorTotarget(_navigator.CurrentRobotPosition, estimatedTarget);
+            Vector2 currentHeading = _navigator.getCurrentHeading();
+
+            double angle = VctOp.calcAngleBeteenVectors(currentHeading, dirVct);
+
+            //estimate a ne target of the angle between us and the target is to steep
+            if (angle > 70 || angle < -70)
+            {
+                Vector2 vct = new Vector2(0, (int)dist);
+                vct = VctOp.calcMovementVector((angle / 2) + _navigator.CurrentRobotRotation, vct);
+
+                //save the old target
+                targetStack.Push(estimatedTarget);
+
+                estimatedTarget = _navigator.CurrentRobotPosition + vct;
+
+                //reclaculate some values
+                dirVct = VctOp.getVectorTotarget(_navigator.CurrentRobotPosition, estimatedTarget);
+            }
+
+            double angle2 = VctOp.calcAngleBeteenVectors(currentHeading, dirVct);
+            Logger.Instance.LogInfo("Angle to estimated target " + angle2);
+
+            angle2 = angle2 / 4;
+
+            if (angle2 < 5 && angle2 > -5)
+            {
+                HandleMovement(0.3f, (float)angle2);
+                executedMovement = 0.3f;
+                executedRotation = (float)angle2;
+
+                _navigator.addMovement(executedMovement, executedRotation);
+            }
+            else
+            {
+                HandleMovement(0.0f, (float)angle2);
+                executedMovement = 0.0f;
+                executedRotation = (float)angle2;
+                _navigator.addMovement(executedMovement, executedRotation);
+            }
+
+            clearVars();
+            moveBackAccepted = false;
+            return false;
+        }
+
         public bool execute(out float executedMovement, out float executedRotation, out bool moveBackAccepted)
         {
             //in case we are searching for a target, we only accept path movement request if they were issiued by the front
@@ -651,6 +730,8 @@ namespace Frame.VrAibo.Movement
                 executedRotation = 0;
 
                 return false;*/
+
+                return handleNavPointStuff(out executedMovement, out executedRotation, out moveBackAccepted);
 
                 Logger.Instance.LogInfo("Handle blocked path");
 
