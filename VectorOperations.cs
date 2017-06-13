@@ -8,6 +8,8 @@ namespace Frame.VrAibo
 {
     public static class VctOp
     {
+
+        
         public static double DegToRad = Math.PI / 180;
 
         public static Vector2 calcMovementVector(double angle, Vector2 vector)
@@ -20,6 +22,11 @@ namespace Frame.VrAibo
             rotatedVector.X = (float)x;
             rotatedVector.Y = (float)y;
             return rotatedVector;
+        }
+
+        public static double calcDistance(Vector2 v1, Vector2 v2)
+        {
+            return Math.Sqrt(Math.Pow((v1.X - v2.X), 2) + Math.Pow((v1.Y - v2.Y), 2));
         }
 
         public static Vector2 getVectorTotarget(Vector2 pos, Vector2 target)
