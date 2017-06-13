@@ -95,7 +95,6 @@
     <Compile Include="ComputerVision.cs" />
     <Compile Include="ImageOperations.cs" />
     <Compile Include="Movement\MovementConsenter.cs" />
-    <Compile Include="Movement\MovementLimiter.cs" />
     <Compile Include="Navigation\MovementHistory.cs" />
     <Compile Include="Navigation\MovementStep.cs" />
     <Compile Include="Navigation\Node.cs" />

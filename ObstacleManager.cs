@@ -12,21 +12,17 @@ namespace Frame.VrAibo
 	{
 		public Emgu.CV.Structure.Hsv obstacleColor;
 		public Vector2 obstaclePos;
-        public bool isOfInterest;
-
 
 		public Obstacle()
 		{
 			obstacleColor = new Emgu.CV.Structure.Hsv(0, 0, 0);
 			obstaclePos = new Vector2(0, 0);
-            isOfInterest = false;
 		}
 
 		public Obstacle(Emgu.CV.Structure.Hsv color, Vector2 pos)
 		{
 			obstacleColor = color;
 			obstaclePos = pos;
-            isOfInterest = false;
 		}
 		
 	}
@@ -35,7 +31,7 @@ namespace Frame.VrAibo
 	{
 		private List<Obstacle> knowObstacals;
 
-		private double minObjectDistance = 10;
+		private double minObjectDistance = 15;
 
 		private double minColorDist = 5;
 
@@ -73,40 +69,19 @@ namespace Frame.VrAibo
 			return  Math.Sqrt(Math.Pow((v1.X - v2.X), 2) + Math.Pow((v1.Y - v2.Y), 2));
 		}
 
-        //public List<Emgu.CV.Structure.Hsv> getColorsOfObjectsInView(Vector2 refPos,double distanceThreshold,)
 
 		public List<Emgu.CV.Structure.Hsv> getColorsOfCloseObstacals(Vector2 refPos, double distanceThreshold)
 		{
 			List<Emgu.CV.Structure.Hsv> colorsOfCloseObjects =new List<Emgu.CV.Structure.Hsv>();
 
-            //Logger.Instance.LogInfo("--------------------------");
 			for (int i = 0; i < knowObstacals.Count; i++)
 			{
 				double dist = calcDistance(refPos,knowObstacals[i].obstaclePos);
-
-                //objects that are of interest are moved closer
-                if (knowObstacals[i].isOfInterest)
-                {
-                    dist = dist / 2;
-
-
-                }
-
-                //Logger.Instance.LogInfo("dist to object: "+dist);
 				if (dist <= distanceThreshold)
 				{
 					colorsOfCloseObjects.Add(knowObstacals[i].obstacleColor);
-                    knowObstacals[i].isOfInterest = true;
-                }
-                else
-                {
-                    knowObstacals[i].isOfInterest = false;
-                    //objects that are that too far away are of no interest
-                }
+				}
 			}
-
-            //Logger.Instance.LogInfo("--------------------------");
-
 			return colorsOfCloseObjects;
 		}
 	}

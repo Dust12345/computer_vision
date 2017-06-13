@@ -47,7 +47,7 @@ namespace Frame.VrAibo
                                                new WayPoint(new Vector2(50, 0))
                                            };
             _path = pf.CreatePath(waypoints);
-            _path.Color = Color.Red;
+            _path.Color = Color.Blue;
             AddGeometricPrimitve(_path);
             // Add additional path
             List<WayPoint> waypoints2 = new List<WayPoint>
@@ -56,7 +56,7 @@ namespace Frame.VrAibo
                                                 new WayPoint(new Vector2(15, 0))
                                             };
             _path = pf.CreatePath(waypoints2);
-            _path.Color = Color.Red;
+            _path.Color = Color.Blue;
             AddGeometricPrimitve(_path);
             // Add additional path
             List<WayPoint> waypoints3 = new List<WayPoint>
@@ -65,58 +65,47 @@ namespace Frame.VrAibo
                                                 new WayPoint(new Vector2(30, 10))
                                             };
             _path = pf.CreatePath(waypoints3);
-            _path.Color = Color.Red;
+            _path.Color = Color.Blue;
             AddGeometricPrimitve(_path);
 
             // Add some randomly placed and scaled "trees"
             PlatonicSolidFactory psf = new PlatonicSolidFactory(XnaRenderer.Instance);
-        
 
-            GeometricPrimitive t = psf.CreateGeometricPrimitive(PlatonicSolid.Tetrahedron);
-            t.Color = Color.DarkGreen;
-            t.WorldMatrix *= Matrix.CreateTranslation(0.0f, 0.25f, 0.0f);
-            float w = 4;
-            float h = 6;
-            t.WorldMatrix *= Matrix.CreateScale(new Vector3(w, h, w));
-            t.WorldMatrix *=
-            Matrix.CreateTranslation(new Vector3(-8.0f,0f, -5.0f));
-            AddGeometricPrimitve(t);
+            // Use a fixed seed value for the placement
+            Random rnd = new Random(42*2);
+            for (int i = 0; i < 8; i++)
+            {
+                GeometricPrimitive tetrahedron = psf.CreateGeometricPrimitive(PlatonicSolid.Tetrahedron);
+                tetrahedron.Color = Color.DarkGreen;
+                tetrahedron.WorldMatrix *= Matrix.CreateTranslation(0.0f, 0.25f, 0.0f);
 
+                float tetra_width = rnd.Next(4, 8);
+                float tetra_height = rnd.Next(6, 16);
 
-            GeometricPrimitive t1 = psf.CreateGeometricPrimitive(PlatonicSolid.Tetrahedron);
-            t1.Color = Color.DarkGreen;
-            t1.WorldMatrix *= Matrix.CreateTranslation(0.0f, 0.25f, 0.0f);          
-            t1.WorldMatrix *= Matrix.CreateScale(new Vector3(w, h, w));
-            t1.WorldMatrix *=
-            Matrix.CreateTranslation(new Vector3(30.0f, 0f, 3.0f));
-            AddGeometricPrimitve(t1);
+                tetrahedron.WorldMatrix *= Matrix.CreateScale(new Vector3(tetra_width, tetra_height, tetra_width));
+                tetrahedron.WorldMatrix *=
+                Matrix.CreateTranslation(new Vector3(rnd.Next(-40, 40), 0f, rnd.Next(-40, 40)));
 
-            GeometricPrimitive t2 = psf.CreateGeometricPrimitive(PlatonicSolid.Tetrahedron);
-            t2.Color = Color.DarkGreen;
-            t2.WorldMatrix *= Matrix.CreateTranslation(0.0f, 0.25f, 0.0f);
-            t2.WorldMatrix *= Matrix.CreateScale(new Vector3(w, h, w));
-            t2.WorldMatrix *=
-            Matrix.CreateTranslation(new Vector3(32.0f, 0f, 8.0f));
-            AddGeometricPrimitve(t2);
-
+                AddGeometricPrimitve(tetrahedron);
+            }
             // Add an obstacle
             PlatonicSolidFactory psf2 = new PlatonicSolidFactory(XnaRenderer.Instance);
             _cube = psf2.CreateGeometricPrimitive(PlatonicSolid.Hexahedron, Color.Bisque);
             _cube.WorldMatrix *= Matrix.CreateTranslation(0, 0.5f, 0);
-            _cube.WorldMatrix *= Matrix.CreateScale(4, 4, 1);
+            _cube.WorldMatrix *= Matrix.CreateScale(8, 4, 1);
             _cube.WorldMatrix *= Matrix.CreateTranslation(0, 0, 15);
             AddGeometricPrimitve(_cube);
             _cube = psf2.CreateGeometricPrimitive(PlatonicSolid.Hexahedron, Color.Bisque);
             _cube.WorldMatrix *= Matrix.CreateTranslation(0, 0.5f, 0);
-            _cube.WorldMatrix *= Matrix.CreateScale(4, 4, 1);
+            _cube.WorldMatrix *= Matrix.CreateScale(8, 4, 1);
             _cube.WorldMatrix *= Matrix.CreateRotationY(3.14f / 2.0f);
-            _cube.WorldMatrix *= Matrix.CreateTranslation(10.5f, 0, 19);
+            _cube.WorldMatrix *= Matrix.CreateTranslation(-3.5f, 0, 19);
             AddGeometricPrimitve(_cube);
-            _cube = psf2.CreateGeometricPrimitive(PlatonicSolid.Hexahedron, Color.Gold);
+            _cube = psf2.CreateGeometricPrimitive(PlatonicSolid.Hexahedron, Color.Bisque);
             _cube.WorldMatrix *= Matrix.CreateTranslation(0, 0.5f, 0);
-            _cube.WorldMatrix *= Matrix.CreateScale(2, 3, 2);
+            _cube.WorldMatrix *= Matrix.CreateScale(8, 4, 1);
             _cube.WorldMatrix *= Matrix.CreateRotationY(3.14f / 2.0f);
-            _cube.WorldMatrix *= Matrix.CreateTranslation(15f, 0, -10);
+            _cube.WorldMatrix *= Matrix.CreateTranslation(3.5f, 0, 19);
             AddGeometricPrimitve(_cube);
         }
     }

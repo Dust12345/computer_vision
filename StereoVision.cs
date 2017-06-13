@@ -55,8 +55,7 @@ namespace Frame.VrAibo
         }
     }
 
-    enum hsvEvalReturn { No_Object, Object_with_border, Object_no_border,Objects_with_gap };
-
+    enum hsvEvalReturn { No_Object, Object_with_border, Object_no_border };
 
     internal class StereoVision : IPluginClient
     {
@@ -68,22 +67,23 @@ namespace Frame.VrAibo
         private GLab.StereoVision.StereoVision _stereoVision;
         private double lastDepth = 0;
 
-        bool disableSideMovement = false;
+
 
         Hsv colorfDetectedObject = new Hsv();
         bool objectDetected = false;
-
-        int frontHeadPos = 0;
 
         MovementConsenter movementConsenter;
 
         ObstacleManager om;
         NodeNavigator nodeNavigator;
 
+        float distMovedTillLastTurn = 0;
 
-        bool leftIsOldPath = false;
-        bool rigthIsOld = false;
-        
+
+
+        private bool moveBack = false;
+
+        List<MovePair> movePairs;
 
         //-----------------
 
@@ -98,21 +98,16 @@ namespace Frame.VrAibo
         private FrmImage leftWindow;
         private FrmImage rigthWindow;
 
-        private FrmImage frontWindowMask;
-        private FrmImage leftWindowMask;
-        private FrmImage rigthWindowMask;
-
         private Image<Rgb, byte> front;
         private Image<Rgb, byte> left;
         private Image<Rgb, byte> rigth;
 
+        private int lastFrontStart = -1;
+        private int lastFrontEnd = -1;
         private int lineStartFront = -1;
         private int lineEndFront = -1;
 
         private FrmImage processedDB;
-
-        Rgb referenceColorFront;
-        private bool initialSetDone = false;
 
         int picsTaken = 0;
 
@@ -121,12 +116,10 @@ namespace Frame.VrAibo
         private FrmImage stuff;
         private FrmImage distanceDB;
 
-        int pathMinThreshold = 70;
+        int pathMinThreshold = 60;
 
 
         Image<Gray, short> disp;
-
-        bool moveBack = false;
 
         //--------------
 
@@ -148,8 +141,13 @@ namespace Frame.VrAibo
 
             //add some colors for testing stuff
 
-            //om.addObstacal(new Hsv(19, 0, 0), new Vector2(0, 0));
+        //    om.addObstacal(new Hsv(19, 0, 0), new Vector2(0, 0));
             //om.addObstacal(new Hsv(0, 0, 0), new Vector2(0, 0));
+
+
+            //sm = new StateMachine();
+
+            movePairs = new List<MovePair>();
 
             /*
              * DEFAULT PARCOURS LAB TASK WITH TERRAIN
@@ -165,21 +163,10 @@ namespace Frame.VrAibo
 
             // Creates a new Virtual Aibo
             //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.4f, 35) };
-           //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.2f, 31.25f) }; //up test red
+            _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.2f, 31.25f) };
 
-            //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(-0.047f, 50.66f) }; //yellow
+            //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(0.047f, -12.66f) };
 
-            //_vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(48.447f, 100.187f) }; 
-
-            _vrAibo = new GLab.VirtualAibo.VrAibo(parcours) { Position = new Vector2(48.45f, 100.25f) }; //up test red
-
-             //{X:48,44476 Y:100,1873}
-            _vrAibo.Rotation = -90;
-
-
-            //s {X:38,75077 Y:100,428}
-
-            //{X:-0,4840283 Y:50,83811}
 
             //{X:0,04798115 Y:-12,66051}
 
@@ -254,18 +241,6 @@ namespace Frame.VrAibo
                                        GLab.VirtualAibo.VrAibo.SurfaceWidth,
                                        GLab.VirtualAibo.VrAibo.SurfaceHeight);
             rigthWindow = new FrmImage("Rigth",
-                                       GLab.VirtualAibo.VrAibo.SurfaceWidth,
-                                       GLab.VirtualAibo.VrAibo.SurfaceHeight);
-
-
-
-            frontWindowMask = new FrmImage("FrontMask",
-                                     GLab.VirtualAibo.VrAibo.SurfaceWidth,
-                                     GLab.VirtualAibo.VrAibo.SurfaceHeight);
-            leftWindowMask = new FrmImage("LeftMask",
-                                       GLab.VirtualAibo.VrAibo.SurfaceWidth,
-                                       GLab.VirtualAibo.VrAibo.SurfaceHeight);
-            rigthWindowMask = new FrmImage("RigthMask",
                                        GLab.VirtualAibo.VrAibo.SurfaceWidth,
                                        GLab.VirtualAibo.VrAibo.SurfaceHeight);
 
@@ -354,97 +329,315 @@ namespace Frame.VrAibo
             }
         }
 
-
-       /* public bool isNotObject(Image<Rgb, byte> img, Rgb pathColor, int x, int y)
+        private int scanHorizontal(Image<Rgb, byte> img, System.Drawing.Point poo, Rgb pathColor, int dir)
         {
 
-            Logger.Instance.LogInfo("method called");
-            //scan upwards, if the path ends before the horizon is reached it is a path
-            int horizonThreshold = (img.Height / 2) - 10;
+            int x = poo.X;
+            int y = poo.Y;
 
-            for (int i = y; i > horizonThreshold; i--)
+            //scan starting from the point of interest into the given dir until the color of that pixel does not longer match the path color
+            while (true)
             {
-                Logger.Instance.LogInfo("Did an iteration");
-
-                if (pathColor.Blue == img[i, x].Blue && pathColor.Red == img[i, x].Red && pathColor.Green == img[i, x].Green)
+                //check if we ran of the image
+                if (x < 0 || x >= img.Width)
                 {
-                    img[i, x] = new Rgb(0, 255, 0);
+                    return x;
                 }
                 else
                 {
-                    Logger.Instance.LogInfo("returned here");
-                    processedDB.SetImage(img);
+                    //check the color
+                    if (pathColor.Blue == img[y, x].Blue && pathColor.Red == img[y, x].Red && pathColor.Green == img[y, x].Green)
+                    {
+                        //still the same color, keep going
+                        x = x + dir;
+                    }
+                    else
+                    {
+                        //end of the path reached
+                        return x - dir;
+                    }
+                }
+            }
+        }
+
+        private bool scanAhead(Image<Rgb, byte> img, System.Drawing.Point poo, Image<Rgb, byte> dbImage, Rgb pathColor, ref System.Drawing.Point pointOfIntersection, out int dir)
+        {
+            int scanInterval = 15;
+
+            stuff.SetImage(img);
+
+            dir = 0;
+
+            int y = poo.Y;
+            int x = poo.X;
+            int stepsTillLastHorizontalScan = 0;
+            int pathEnd = 0;
+
+            pathColor = img[poo];
+
+            //scan verticaly until the path ends
+            while (true)
+            {
+                //check if we ran of the image
+                if (y < 0)
+                {
+                    //ran of the image
+                    break;
+                }
+                else
+                {
+
+                    //check if the color is still the same
+                    if (pathColor.Blue == img[y, x].Blue && pathColor.Red == img[y, x].Red && pathColor.Green == img[y, x].Green)
+                    {
+                        //still on the path
+                        //check if we need to start a horizontal scan
+                        if (stepsTillLastHorizontalScan == scanInterval)
+                        {
+                            //start an horizontal scan
+                            System.Drawing.Point origin = new System.Drawing.Point(x, y);
+                            int pathEndLeft = scanHorizontal(img, origin, pathColor, -1);
+                            int pathEndRigth = scanHorizontal(img, origin, pathColor, 1);
+
+                            LineSegment2D ls2 = new LineSegment2D(new System.Drawing.Point(pathEndLeft, y), new System.Drawing.Point(pathEndRigth, y));
+
+
+                            //check if an intersection
+                            if (pathEndLeft == 0 || pathEndRigth == img.Width)
+                            {
+
+                                pointOfIntersection.X = origin.X;
+                                pointOfIntersection.Y = origin.Y;
+
+                                //chck which way the intersection
+                                if (pathEndLeft == 0)
+                                {
+                                    dir = -1;
+                                }
+                                else
+                                {
+                                    dir = 1;
+                                }
+
+                                dbImage.Draw(ls2, new Rgb(0, 255, 0), 2);
+                                return true;
+
+                            }
+                            else
+                            {
+                                dbImage.Draw(ls2, new Rgb(0, 0, 255), 2);
+                            }
+
+
+                            //reset the counter
+                            stepsTillLastHorizontalScan = 0;
+                        }
+                        else
+                        {
+                            stepsTillLastHorizontalScan++;
+                        }
+                        y--;
+                    }
+                    else
+                    {
+                        //path endet
+                        pathEnd = y;
+                        break;
+                    }
+
+                }
+            }
+            LineSegment2D ls3 = new LineSegment2D(new System.Drawing.Point(poo.X, poo.Y), new System.Drawing.Point(poo.X, pathEnd));
+            dbImage.Draw(ls3, new Rgb(0, 0, 255), 2);
+            return false;
+        }
+
+        private bool isSidePath(int lineStart, int lineEnd, int imgWidth)
+        {
+            //first case applies if the path is wider than the image
+            if (lineStart == 0 && lineEnd == imgWidth)
+            {
+                return true;
+            }
+            else if (lineStart > 0 && lineEnd <= imgWidth)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool scanForPath(Image<Rgb, byte> img, int heigth, out int lineStart, out int lineEnd)
+        {
+
+            lineStart = 0;
+            lineEnd = 256;
+
+            // ...and find the line
+            for (int x = 0; x < img.Width; ++x)
+            {
+
+                //color to check the path
+                Rgb pixel = img[heigth, x];
+                int puixelOfSameColor = 0;
+                lineStart = x;
+
+                //look ahead to see if this is the color of tzhe path
+                for (int j = x; j < img.Width; j++)
+                {
+                    if (pixel.Blue == img[heigth, j].Blue && pixel.Red == img[heigth, j].Red && pixel.Green == img[heigth, j].Green)
+                    {
+                        puixelOfSameColor++;
+                        lineEnd = j;
+                    }
+                    else
+                    {
+                        lineEnd = j - 1;
+                        break;
+                    }
+                }
+
+
+
+                //cherck if this was the path
+                if (puixelOfSameColor >= pathMinThreshold)
+                {
                     return true;
+                }
+
+            }
+
+            return false;
+        }
+
+
+
+
+        private bool checkIfvalidPath(int start, int end, int heigth, Image<Rgb, byte> img, int scanDist)
+        {
+            int center = (end - ((end - start) / 2));
+
+            Rgb referenceColor = img[heigth, center];
+
+            for (int i = 0; i < scanDist; i++)
+            {
+                if (referenceColor.Blue == img[heigth - i, center].Blue && referenceColor.Red == img[heigth - i, center].Red && referenceColor.Green == img[heigth - i, center].Green)
+                {
+
+                }
+                else
+                {
+                    LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(center, heigth), new System.Drawing.Point(center, heigth - i));
+
+                    img.Draw(ls, new Rgb(0, 255, 0), 2);
+
+                    return false;
                 }
             }
 
-            Logger.Instance.LogInfo("returned in false");
-            processedDB.SetImage(img);
+            LineSegment2D ls1 = new LineSegment2D(new System.Drawing.Point(center, heigth), new System.Drawing.Point(center, heigth - scanDist));
+
+            img.Draw(ls1, new Rgb(0, 0, 255), 2);
+            return true;
+        }
+
+        private bool scanForSidePathRigth(Image<Rgb, byte> img, int scanHeigth, int minSegmentLength)
+        {
+
+            int sameColorPixels = 0;
+
+            Rgb pathColor = img[scanHeigth, 0];
+
+
+            //the path we are intereted in should start at the rigth side of the image, if the path would lie in the center of the image the normal side image eval algo would have detected that path
+            for (int i = 0; i < img.Width; i++)
+            {
+                //check whether the pixel still is of the color we are looking for
+                if (pathColor.Blue == img[scanHeigth, i].Blue && pathColor.Red == img[scanHeigth, i].Red && pathColor.Green == img[scanHeigth, i].Green)
+                {
+                    sameColorPixels++;
+                }
+                else
+                {
+                    //a different color was scanned, check if we saw enough pixel
+                    if (sameColorPixels >= minSegmentLength)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+
+            }
+
+            //realisticly this should never be reached
             return false;
-        }*/
+        }
 
-     
 
-        private void pathMovement()
+        private bool scanForSidePathLeft(Image<Rgb, byte> img, int scanHeigth, int minSegmentLength)
+        {
+
+            int sameColorPixels = 0;
+
+            Rgb pathColor = img[scanHeigth, img.Width - 1];
+
+
+            //the path we are intereted in should start at the rigth side of the image, if the path would lie in the center of the image the normal side image eval algo would have detected that path
+            for (int i = img.Width - 1; i > 0; i--)
+            {
+                //check whether the pixel still is of the color we are looking for
+                if (pathColor.Blue == img[scanHeigth, i].Blue && pathColor.Red == img[scanHeigth, i].Red && pathColor.Green == img[scanHeigth, i].Green)
+                {
+                    sameColorPixels++;
+                }
+                else
+                {
+                    //a different color was scanned, check if we saw enough pixel
+                    if (sameColorPixels >= minSegmentLength)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+
+            }
+
+            //realisticly this should never be reached
+            return false;
+        }
+
+
+        private void moveBasedOnImage()
         {
             Logger.Instance.LogInfo("----------------------------------");
 
-            //save the values from the last interation for comparison 
+            //save the values from the last interation for comparison
+            lastFrontStart = lineStartFront;
+            lastFrontEnd = lineEndFront;
+
+            int minMoveDistanceTillNextTurn = 10;
+
             bool frontOK = false;
+
             int lookAheadDistance = 10;
-            double nodeCheckTheshold = 2;
+
+
             int scanHeigth = GLab.VirtualAibo.VrAibo.SurfaceHeight - 10;
 
-            //percentage based
-            int scanDownSidePadding = 20;
-
-
-         
-
-            ImageOperations.scanForPath(front, scanHeigth, out lineStartFront, out lineEndFront,pathMinThreshold);
-
-           int center = (lineEndFront - ((lineEndFront - lineStartFront) / 2));
-           //inital set in the front scan
-           if (!initialSetDone)
-           {
-               referenceColorFront = front[scanHeigth, center];
-               initialSetDone = true;
-           }
-         
-
-           // isNotObject(front, referenceColor, center, scanHeigth);
-
+            scanForPath(front, scanHeigth, out lineStartFront, out lineEndFront);
 
             //check if the return values suggest that ther is a path
-            if (lineStartFront != -1 && lineEndFront != -1 &&  lineStartFront != 255)
+            if (lineStartFront != -1 && lineEndFront != -1)
             {
-
-                //Rgb referenceColor = front[scanHeigth, center];
                 LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(lineStartFront, scanHeigth), new System.Drawing.Point(lineEndFront, scanHeigth));
 
-                int c = (lineEndFront - ((lineEndFront - lineStartFront) / 2));
-
-                frontOK = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance, c, referenceColorFront,true,ref referenceColorFront);
-
-                //to make the fron scan more rubust we perform aditional scans if he first one fails
-                if (!frontOK)
-                {
-                    int padding = ((lineEndFront - lineStartFront) / 100) * 10;                  
-                    bool leftScann = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance, lineStartFront+padding, referenceColorFront,false,ref referenceColorFront);
-                                     
-                    bool rigthScann = ImageOperations.checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance, lineEndFront-padding, referenceColorFront,false,ref referenceColorFront);
-
-                    if (leftScann)
-                    {
-                        lineEndFront = c;
-                        frontOK = true;
-                    }
-                    else if(rigthScann)
-                    {
-                        lineStartFront = c;
-                        frontOK = true;
-                    }
-                }
+                frontOK = checkIfvalidPath(lineStartFront, lineEndFront, scanHeigth, front, lookAheadDistance);
 
                 front.Draw(ls, new Rgb(0, 0, 255), 2);
             }
@@ -455,115 +648,96 @@ namespace Frame.VrAibo
 
             bool LeftOK = false;
 
-            bool pathFound = ImageOperations.scanForPath(left, scanHeigth, out lineStartLeft, out lineEndLeft,pathMinThreshold);
+            bool pathFound = scanForPath(left, scanHeigth, out lineStartLeft, out lineEndLeft);
 
             //check if the return values suggest that ther is a path
-            if (pathFound && lineStartLeft != -1 && lineEndLeft != -1 && ImageOperations.isSidePath(lineStartLeft, lineEndLeft, left.Width))
+            if (pathFound && lineStartLeft != -1 && lineEndLeft != -1 && isSidePath(lineStartLeft, lineEndLeft, left.Width))
             {
-                int c = (lineEndLeft - ((lineEndLeft - lineStartLeft) / 2));
-                Rgb referenceColorLeft = left[scanHeigth, c];
-                LeftOK = ImageOperations.checkIfvalidPath(lineStartLeft, lineEndLeft, scanHeigth, left, 20, c, referenceColorLeft,false,ref referenceColorLeft);
-
-                if (LeftOK)
-                {
-                    //make an extra check to avoid detecting ground patches
-                    int padding = ((lineEndFront - lineStartLeft) / 100) * scanDownSidePadding;
-
-                    bool returnStatusL = ImageOperations.colorUnchangingScanDown(left, padding + lineStartLeft, scanHeigth+1,referenceColorLeft);
-                    bool returnStatusR = ImageOperations.colorUnchangingScanDown(left, lineEndLeft - padding, scanHeigth + 1, referenceColorLeft);
-
-                    if (!(returnStatusL && returnStatusR))
-                    {
-                        LeftOK = false;
-                    }
-                }
+                LeftOK = checkIfvalidPath(lineStartLeft, lineEndLeft, scanHeigth, left, 20);
 
                 LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(lineStartLeft, scanHeigth), new System.Drawing.Point(lineEndLeft, scanHeigth));
                 left.Draw(ls, new Rgb(0, 0, 255), 2);
             }
 
+
             int lineStartRigth = -1;
             int lineEndRigth = -1;
 
             bool rigthOK = false;
-            pathFound = ImageOperations.scanForPath(rigth, scanHeigth, out lineStartRigth, out lineEndRigth,pathMinThreshold);
+
+
+            pathFound = scanForPath(rigth, scanHeigth, out lineStartRigth, out lineEndRigth);
+
 
 
             //check if the return values suggest that ther is a path
-            if (pathFound && lineStartRigth != -1 && lineEndRigth != -1 && ImageOperations.isSidePath(lineStartRigth, lineEndRigth, rigth.Width))
+            if (pathFound && lineStartRigth != -1 && lineEndRigth != -1 && isSidePath(lineStartRigth, lineEndRigth, rigth.Width))
             {
-                int c = (lineEndRigth - ((lineEndRigth - lineStartRigth) / 2));
-                Rgb referenceColorRigth = rigth[scanHeigth, c];
-                rigthOK = ImageOperations.checkIfvalidPath(lineStartRigth, lineEndRigth, scanHeigth, rigth, 20, c, referenceColorRigth,false,ref referenceColorRigth);
-
-
-                if (rigthOK)
-                {
-                    //make an extra check to avoid detecting ground patches
-                    int padding = ((lineEndRigth - lineStartRigth) / 100) * scanDownSidePadding;
-
-                    bool returnStatusL = ImageOperations.colorUnchangingScanDown(rigth, padding + lineStartRigth, scanHeigth + 1, referenceColorRigth);
-                    bool returnStatusR = ImageOperations.colorUnchangingScanDown(rigth, lineEndRigth - padding, scanHeigth + 1, referenceColorRigth);
-
-                    if (!(returnStatusL && returnStatusR))
-                    {
-                        rigthOK = false;
-                    }
-                }
-
+                rigthOK = checkIfvalidPath(lineStartRigth, lineEndRigth, scanHeigth, rigth, 20);
                 LineSegment2D ls = new LineSegment2D(new System.Drawing.Point(lineStartRigth, scanHeigth), new System.Drawing.Point(lineEndRigth, scanHeigth));
                 rigth.Draw(ls, new Rgb(0, 0, 255), 2);
             }
 
-            if (disableSideMovement)
-            {
-                rigthOK = false;
-                LeftOK = false;
-            }
-
-            //hasThatColor
-            bool leftHasColor = ImageOperations.hasThatColor(left, scanHeigth+20, referenceColorFront);
-            bool rigthHasColor = ImageOperations.hasThatColor(rigth, scanHeigth+20, referenceColorFront);
-
-            if (leftIsOldPath)
-            {
-                if (!leftHasColor)
-                {
-                    leftIsOldPath = false;
-                }
-                else
-                {
-                    LeftOK = false;
-                }
-            }
-
-            if (rigthIsOld)
-            {
-                if (!rigthHasColor)
-                {
-                    rigthIsOld = false;
-                }
-                else
-                {
-                    rigthOK = false;
-                }
-            }
-
-            Logger.Instance.LogInfo("After eval Old: L " + leftIsOldPath + " R " + rigthIsOld);
-
-            //check if we are very close to a node
-            bool closeToNode = nodeNavigator.isCloseToNode(nodeCheckTheshold);
-
-            if (closeToNode)
-            {
-                LeftOK = false;
-                rigthOK = false;
-            }
 
             //check we returned to a previusly visited intersection
-            if (justReturnedFromTrackBack&&false)
+            if (justReturnedFromTrackBack)
             {
-                //handleReturnFromMoveBack();             
+
+                Logger.Instance.LogInfo("Just returned");
+
+                justReturnedFromTrackBack = false;
+                //check wether the intersection has a path we did not visit yet
+                if (movePairs.Count == 1)
+                {
+
+                    MovePair mp = movePairs[0];
+
+                    distMovedTillLastTurn = 0;
+                    if (movePairs[0].left)
+                    {
+
+                        movementConsenter.pathDetectionReques(AiboSpeed, 90);
+
+                        distMovedTillLastTurn += AiboSpeed;
+
+                        mp.left = false;
+                        mp.movement = AiboSpeed;
+                        mp.turn = 90;
+                        movePairs.Add(mp);
+                    }
+                    else if (movePairs[0].froont)
+                    {
+
+
+                        movementConsenter.pathDetectionReques(AiboSpeed, 0);
+
+
+                        distMovedTillLastTurn += AiboSpeed;
+
+                        mp.froont = false;
+                        mp.movement = AiboSpeed;
+                        movePairs.Add(mp);
+                    }
+                    else
+                    {
+
+                        movementConsenter.pathDetectionReques(AiboSpeed, -90);
+
+                        distMovedTillLastTurn += AiboSpeed;
+
+                        mp.rigth = false;
+                        mp.movement = AiboSpeed;
+                        mp.turn = -90;
+                        movePairs.Add(mp);
+                    }
+
+                }
+                else
+                {
+                    //all paths of the intersection were visited, turn around and move back
+                    //mc.RequestRotation(180);
+                    //mc.RequestMovement(AiboSpeed);
+                }
             }
             else
             {
@@ -572,166 +746,137 @@ namespace Frame.VrAibo
                 //check of the front is clear
                 if (frontOK)
                 {
+                    // Logger.Instance.LogInfo("Front ok");
+                    //Logger.Instance.LogInfo("Status R: "+rigthOK);
+                    //Logger.Instance.LogInfo("Min Status: " + (distMovedTillLastTurn < minMoveDistanceTillNextTurn));
+                    //Logger.Instance.LogInfo("Moved: " + distMovedTillLastTurn + " must move: " + minMoveDistanceTillNextTurn);
+
+
+
                     //check if there are no side paths or if we ignore them because we just turned
-                    if ((!LeftOK && !rigthOK))
+                    if ((!LeftOK && !rigthOK) || distMovedTillLastTurn < minMoveDistanceTillNextTurn)
                     {
+
+
                         //just move front
                         //only way to move it forward
                         int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (lineEndFront - ((lineEndFront - lineStartFront) / 2));
                         float phi = Alpha * diffX;
-                        movementConsenter.pathDetectionRequest(AiboSpeed, phi,true);
-                      
+
+                        MovePair mp = new MovePair();
+                        mp.movement = AiboSpeed;
+
+                        int sDiff = Math.Abs(lastFrontStart - lineStartFront);
+                        int eDiff = Math.Abs(lastFrontEnd - lineEndFront);
+
+                        if (phi != 0.0f)
+                        {
+                            // mc.turnFromPath = phi / 2;
+                            //mc.RequestRotation(phi / 2);
+                            mp.turn = phi / 2;
+                        }
+                        else
+                        {
+                            phi = 0;
+                        }
+
+
+                        movementConsenter.pathDetectionReques(AiboSpeed, phi);
+                        movePairs.Add(mp);
+                        distMovedTillLastTurn += AiboSpeed;
                     }
                     else
                     {
-                        //a possible intersection has beed detected                      
+                        //a possible intersection has beed detected
+
+                        // Logger.Instance.LogInfo("new intersection found");
+                        distMovedTillLastTurn = 0;
+                        movePairs.Clear();
+
+
+                        MovePair mp = new MovePair();
+                        mp.isIntersection = true;
+                        mp.froont = true;
                         //check which way to intersection is going
                         if (LeftOK && rigthOK)
                         {
-                            movementConsenter.requestNewNode(false, true, true);
+                            //intersections goes both ways
+                            mp.left = true;
+                            mp.rigth = true;
+                            //if both way, go left first
 
-                            //nodeNavigator.createNewNodeAtCurrentPosition(false, true, true);
+                            movementConsenter.pathDetectionReques(AiboSpeed, 90);
+                            distMovedTillLastTurn += AiboSpeed;
 
-                            //intersections goes both ways         
-                            //move left first, on hard turns like this never move on the turn
-                            movementConsenter.pathDetectionRequest(0, 90,false);
-                            leftIsOldPath = true;
-                            rigthIsOld = true;
-                          
+                            mp.left = false;
+                            mp.movement = AiboSpeed;
+                            mp.turn = 90;
+                            movePairs.Add(mp);
 
                         }
                         else if (LeftOK)
                         {
+                            movementConsenter.pathDetectionReques(AiboSpeed, 90);
+                            distMovedTillLastTurn += AiboSpeed;
 
-                            int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (lineEndLeft - ((lineEndLeft - lineStartLeft) / 2));
-                            float phi = Alpha * diffX;
-
-                            movementConsenter.requestNewNode(false, false, true);
-
-                           // nodeNavigator.createNewNodeAtCurrentPosition(false, false, true);
-                            //intersection only goes to the left
-                            movementConsenter.pathDetectionRequest(0, 90 + phi,false);
-                            leftIsOldPath = true;
-                            rigthIsOld = true;
+                            mp.left = false;
+                            mp.movement = AiboSpeed;
+                            mp.turn = 90;
+                            movePairs.Add(mp);
                         }
                         else
                         {
-                            int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (lineEndRigth - ((lineEndRigth - lineStartRigth) / 2));
-                            float phi = Alpha * diffX;
-                            movementConsenter.requestNewNode(false, false, true);
 
-                            nodeNavigator.createNewNodeAtCurrentPosition(false, false, true);
-                            //intersection goes to the rigth
-                            movementConsenter.pathDetectionRequest(0, -90+phi,false);
-                            leftIsOldPath = true;
-                            rigthIsOld = true;
+
+                            movementConsenter.pathDetectionReques(AiboSpeed, -90);
+                            distMovedTillLastTurn += AiboSpeed;
+
+                            mp.rigth = false;
+                            mp.movement = AiboSpeed;
+                            mp.turn = -90;
+                            movePairs.Add(mp);
                         }
+
+
                     }
 
                 }
                 else
                 {
-                    //Logger.Instance.LogInfo("FRONT NOT OK");
-                    //movementConsenter.RequestReturnToLastNode();
+                    Logger.Instance.LogInfo("FRONT NOT OK");
 
                     //front not ok
 
-                    Logger.Instance.LogInfo("Front is blocked");
+
                     //chech whether this realy is a dead end
                     //there is the possibility that a T shaped intersection or a simple turn is view as a dead end,
                     //because the end of the path is reached, while the side views to not enoug of the side paths to detect them
 
                     int sideScanHeigth = GLab.VirtualAibo.VrAibo.SurfaceHeight - 20;
 
-                    int leftStart = -1;
-                    int rigthEnd = -1;
 
-                    bool leftScanResult = ImageOperations.scanForSidePathLeft(left, sideScanHeigth, 10, out leftStart,referenceColorFront);
-                    bool rigthScanResult = ImageOperations.scanForSidePathRigth(rigth, sideScanHeigth, 10, out rigthEnd,referenceColorFront);
-
-
-                    if (closeToNode)
-                    {
-                        //leftScanResult = false;
-                        //rigthScanResult = false;
-                    }
-                    else
-                    {
-                        Logger.Instance.LogInfo("TO CLOSE TO NODE");
-                    }
-
-
-                    if (disableSideMovement)
-                    {
-                        leftScanResult = false;
-                        rigthScanResult = false;
-                    }
-
-                    if (rigthIsOld)
-                    {
-                        rigthScanResult = false;
-                    }
-
-                    if (leftIsOldPath)
-                    {
-                        leftScanResult = false;
-                    }
+                    bool leftScanResult = scanForSidePathLeft(left, sideScanHeigth, 10);
+                    bool rigthScanResult = scanForSidePathRigth(rigth, sideScanHeigth, 10);
 
                     if (leftScanResult && !rigthScanResult)
                     {
-                        int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (left.Width - 1 - (((left.Width - 1) - leftStart) / 2));
-                        float phi = Alpha * diffX;
-
-                        //check if the path we saw is an old one
                         //simpe left turn
-                        movementConsenter.requestNewNode(false, false, false);
 
-                        //nodeNavigator.createNewNodeAtCurrentPosition(false, false, false);
-                        movementConsenter.pathDetectionRequest(0, 90 + phi,false);
-
-                        leftIsOldPath = true;
-                        rigthIsOld = true;
+                        movementConsenter.pathDetectionReques(AiboSpeed, 90);
+                        distMovedTillLastTurn = 0;
                         return;
                     }
                     else if (!leftScanResult && rigthScanResult)
                     {
-
-                        int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (rigthEnd - ((rigthEnd - (rigth.Width-1)) / 2));
-                        float phi = Alpha * diffX;
-
-                        movementConsenter.requestNewNode(false, false, false);
-
-                        //nodeNavigator.createNewNodeAtCurrentPosition(false, false, false);
                         //simple rigth turn
-                        movementConsenter.pathDetectionRequest(0, -90+phi,false);
-                        leftIsOldPath = true;
-                        rigthIsOld = true;
+                        movementConsenter.pathDetectionReques(AiboSpeed, -90);
+                        distMovedTillLastTurn = 0;
                         return;
-                    }
-                    else if (leftScanResult &&!rigthScanResult)
-                    {
-                        //T intersection
-                        Logger.Instance.LogInfo("T INTERSECTION");
-                        leftIsOldPath = true;
-                        rigthIsOld = true;
-
-                        movementConsenter.requestNewNode(false, true, true);
-                        //nodeNavigator.createNewNodeAtCurrentPosition(false, true, false);
-                        movementConsenter.pathDetectionRequest(0, 90,false);   
                     }
                     else
                     {
-                        Logger.Instance.LogInfo("DEAD END");
-                        //dead end reached              
-                        //if (!movementConsenter.isReturning())
-                        {
-                            bool granted = movementConsenter.RequestReturnToLastNode();
-
-                           /* if (granted)
-                            {
-                                moveBack = true;
-                            }    */          
-                        }
+                        distMovedTillLastTurn = 0;
+                        //T intersection
                     }
 
                     //mc.RequestRotation(180);
@@ -743,156 +888,148 @@ namespace Frame.VrAibo
 
             return;
 
-        }       
+        }
 
-        private void moveAroundObject2()
+
+        private void moveBackViaRecordedPath()
         {
-            Image<Gray, byte> maskFront = new Image<Gray, byte>(front.Size);
-            Image<Gray, byte> maskLeft = new Image<Gray, byte>(left.Size);
-            Image<Gray, byte> maskRight = new Image<Gray, byte>(rigth.Size);
+            //get the last element
+            MovePair mp = movePairs[movePairs.Count - 1];
 
-            //params
-            int hueRange = 16;
-            int strctSize = 5;
+            //apply the turn in reverse and move
 
-            int objectSearchRange = 5;
-
-            int scanHeigth = front.Height / 2;
-
-
-            //mask the objects
-
-            List<Hsv> colorsToMask = om.getColorsOfCloseObstacals(nodeNavigator.CurrentRobotPosition, objectSearchRange);
-
-            ImageOperations.maskMultipleColors(front, out maskFront, colorsToMask, hueRange, strctSize);
-            ImageOperations.maskMultipleColors(left, out maskLeft, colorsToMask, hueRange, strctSize);
-            ImageOperations.maskMultipleColors(rigth, out maskRight, colorsToMask, hueRange, strctSize);
-
-            int objectStart = 0;
-            int objectEnd = 0;
-            bool objectToLeft;
-
-            hsvEvalReturn frontStatus = evalMask2(maskFront, scanHeigth, out objectEnd, out objectStart, out objectToLeft);
-
-            //hsvEvalReturn rStatus = evalMask2(maskRight, scanHeigth, out objectEndR, out objectToLeftR);
-
-
-            //hsvEvalReturn frontStatus = evalMask(maskFront, scanHeigth, out objectEnd, out objectToLeft);
-
-            if (frontStatus == hsvEvalReturn.Objects_with_gap)
+            if (movePairs.Count - 1 == 0)
             {
-
-                Logger.Instance.LogInfo("abject with gap ");
-                frontHeadPos = 0;
-                //we aim for the center of the gap
-                int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (objectEnd - ((objectEnd - objectStart) / 2));
-                float phi = Alpha * diffX;
-
-                //homing in on a gap can be tricky, so we dont move while turning in a significant way
-                if (phi < -5 || phi > 5)
-                {
-                    movementConsenter.objectDetectionRequest(0, phi, stateOfDetObject.Center);
-                }
-                else
-                {
-                    movementConsenter.objectDetectionRequest(AiboSpeed, phi, stateOfDetObject.Center);
-                }
-                
-                //return;
-
+                movementConsenter.RequestMovement(mp.movement);
+                movementConsenter.RequestRotation(mp.turn);
             }
-          
-
-            if (frontStatus == hsvEvalReturn.No_Object)
+            else
             {
-                frontHeadPos = 0;
-               // return;
-            }
-            else if (frontStatus == hsvEvalReturn.Object_no_border)
-            {
-                frontHeadPos = 0;
-                //with no border
-               // movementConsenter.objectDetectionRequest()
-                movementConsenter.objectDetectionRequest(0, 20, stateOfDetObject.Center);
-                //_vrAibo.Turn(20);
-            }
-            else if (frontStatus == hsvEvalReturn.Object_with_border)
-            {
-                //object with border
-                if (objectToLeft)
-                {
-                    //object to the left
-                    int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 5) - objectEnd;
-                    float phi = Alpha * diffX;
-
-                    if (phi > 15 || phi < -15)
-                    {
-                        movementConsenter.objectDetectionRequest(0, phi, stateOfDetObject.Left);
-                    }
-                    else
-                    {
-                        movementConsenter.objectDetectionRequest(AiboSpeed, phi, stateOfDetObject.Left);
-                    }
-
-                    frontHeadPos = 15;
-
-                    //Logger.Instance.LogInfo("Phi " + phi);
-
-                    //_vrAibo.Turn(phi);
-                 
-
-                }
-                else
-                {
-
-                  
-
-                    //object to the rigth
-                    int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth - (GLab.VirtualAibo.VrAibo.SurfaceWidth / 5)) - objectEnd;
-                    float phi = Alpha * diffX;
-
-                
-
-                    if (phi > 15 || phi < -15)
-                    {
-                        movementConsenter.objectDetectionRequest(0, phi, stateOfDetObject.Rigth);
-                    }
-                    else
-                    {
-                        movementConsenter.objectDetectionRequest(AiboSpeed, phi, stateOfDetObject.Rigth);
-                    }
-
-
-                    frontHeadPos = -15;
-
-                    //_vrAibo.Turn(phi);
-                    
-                }
-
+                movementConsenter.RequestMovement(mp.movement);
+                movementConsenter.RequestRotation(mp.turn * -1);
             }
 
-            frontWindowMask.SetImage(maskFront);
-            leftWindowMask.SetImage(maskLeft);
-            rigthWindowMask.SetImage(maskRight);
-
+            if (movePairs.Count > 1)
+            {
+                movePairs.RemoveAt(movePairs.Count - 1);
+            }
 
         }
 
-        private hsvEvalReturn evalMask2(Image<Gray, byte> mask, int scanHeigth, out int objectEnd, out int objectStart,out bool objectToLeft)
+        private double getDistance(Image<Gray, byte> disp, Image<Gray, byte> center, FrmImage dbImage)
         {
-            List<Segment> objectSegments = new List<Segment>();
-            bool onObject = 0 < mask.Data[scanHeigth, 0,0];           
+            Image<Gray, byte> distImg = center.Copy();
 
+            int heigth = 256 / 2;
+            byte distThres = 255 - 30;
+
+            double avrgDist = 0;
+            int valuesAdded = 0;
+
+            int sideSpacing = 80;
+
+            for (int i = sideSpacing; i < distImg.Width - sideSpacing; i++)
+            {
+                //get the distance
+                //byte distance = disp.Data[heigth, i, 0];
+
+                double distance = _stereoVision.GetDepth(i, heigth);
+
+                avrgDist += distance;
+                valuesAdded++;
+
+
+                //Logger.Instance.LogInfo("d: "+distance);
+                if (distance <= distThres)
+                {
+                    distImg[heigth, i] = new Gray(255);
+                }
+                else
+                {
+                    distImg[heigth, i] = new Gray(0);
+                }
+
+
+            }
+
+            dbImage.SetImage(distImg);
+            return avrgDist / valuesAdded;
+        }
+
+
+        private double getDistance(Image<Gray, short> disp, Image<Rgb, byte> center, FrmImage dbImage)
+        {
+            Image<Rgb, byte> distImg = center.Copy();
+
+            int heigth = 256 / 2;
+            short distThres = 255 - 30;
+
+            double avrgDist = 0;
+            int valuesAdded = 0;
+
+            int sideSpacing = 80;
+
+            for (int i = sideSpacing; i < distImg.Width - sideSpacing; i++)
+            {
+                //get the distance
+                //short distance = disp.Data[heigth, i, 0];
+
+                double distance = _stereoVision.GetDepth(i, heigth);
+
+                avrgDist += distance;
+                valuesAdded++;
+
+
+                //Logger.Instance.LogInfo("d: "+distance);
+                if (distance <= distThres)
+                {
+                    distImg[heigth, i] = new Rgb(255, 0, 0);
+                }
+                else
+                {
+                    distImg[heigth, i] = new Rgb(0, 255, 0);
+                }
+
+
+            }
+
+            dbImage.SetImage(distImg);
+            return avrgDist / valuesAdded;
+        }
+
+
+        private int getSegments(Image<Gray, short> disp, Image<Rgb, byte> center, FrmImage dbImage, out List<Segment> objectSegments, short distThres, int heigth)
+        {
+            Image<Rgb, byte> distImg = center.Copy();
+
+
+            int avrgDist = 0;
+            int valuesAdded = 0;
+
+            objectSegments = new List<Segment>();
             int newSegemntStart = 0;
 
-            int minGapSize = 30;
+            bool onObject = distThres < disp.Data[heigth, 0, 0];
 
-            for (int i = 0; i < mask.Width; i++)
+
+
+            for (int i = 0; i < distImg.Width; i++)
             {
-               
                 //get the distance
-                double pixelColor = mask.Data[scanHeigth, i,0];
-                bool isCurrentPixelObject = 0 < pixelColor;
+                short distance = disp.Data[heigth, i, 0];
+
+
+
+
+                // double distance = _stereoVision.GetDepth(i, heigth);
+
+                avrgDist += distance;
+                valuesAdded++;
+
+
+                bool isCurrentPixelObject = distThres < distance;
+
+
                 //check if the current pixel still the same as the segment we are currently tracking
                 if (isCurrentPixelObject == onObject)
                 {
@@ -900,137 +1037,293 @@ namespace Frame.VrAibo
                 }
                 else
                 {
-                    if (onObject)
-                    {
-                        //change detected
-                        objectSegments.Add(new Segment(newSegemntStart, i - 1, onObject));                      
-                    }
+                    //change detected
+                    objectSegments.Add(new Segment(newSegemntStart, i - 1, onObject));
                     newSegemntStart = i;
                     onObject = isCurrentPixelObject;
-                }
-            }
 
-            if (onObject)
-            {
-                //dont forget to add the last segment
-                objectSegments.Add(new Segment(newSegemntStart, mask.Width, onObject));
-            }
-
-
-         
-                if (objectSegments.Count == 0)
-                {
-                    Logger.Instance.LogInfo("No object detected");
-                    objectEnd = 0;
-                    objectStart = -1;
-                    objectToLeft = false;
-                    return hsvEvalReturn.No_Object;
                 }
 
-            //eval the segmens
-            if (objectSegments.Count == 1)
-            {
-                Logger.Instance.LogInfo("Only one object detected");
-                if (objectSegments[0].start == 0 && objectSegments[0].end== mask.Width)
+
+                //print to the db image
+                if (isCurrentPixelObject)
                 {
-                    objectEnd = 0;
-                    objectStart = -1;
-                    objectToLeft = true;
-                    return hsvEvalReturn.Object_no_border;
+                    //distImg[heigth, i] = new Rgb(255, 0, 0);
                 }
                 else
                 {
-                    
-
-                    int distToLeft = objectSegments[0].start;
-                    int distToRigth = mask.Width - objectSegments[0].end;
-
-                    if (distToLeft < distToRigth)
-                    {
-                        objectEnd = objectSegments[0].end;
-                        objectToLeft = true;
-                        objectStart = -1;
-                        return hsvEvalReturn.Object_with_border;
-                    }
-                    else
-                    {
-                        objectEnd = objectSegments[0].start;
-                        objectToLeft = false;
-                        objectStart = -1;
-                        return hsvEvalReturn.Object_with_border;
-                    }
+                    //distImg[heigth, i] = new Rgb(0, 255, 0);
                 }
+
+
+                //Logger.Instance.LogInfo("d: "+distance);
+                /*   if (distance <= distThres)
+                   {
+
+                       if (!trackingFreeSegment)
+                       {
+                           //we found a new segment
+                           newSegemntStart = i;
+                           trackingFreeSegment = true;
+                       }
+
+                       distImg[heigth, i] = new Rgb(255, 0, 0);
+                   }
+                   else
+                   {
+                       distImg[heigth, i] = new Rgb(0, 255, 0);
+                       if (trackingFreeSegment)
+                       {
+                           objectSegments.Add(new Segment(newSegemntStart, i));
+                           trackingFreeSegment = false;
+                       }
+
+                   }*/
+
+
+            }
+
+            //dont forget to add the last segment
+            objectSegments.Add(new Segment(newSegemntStart, distImg.Width, onObject));
+
+            dbImage.SetImage(distImg);
+            return avrgDist / valuesAdded;
+        }
+
+        private void maskMultipleColors(Image<Rgb, byte> src, out Image<Gray, byte> dest, List<Hsv> colorsToMask, int hueRange, int strucSize)
+        {
+            Image<Hsv, byte> hsvFront = new Image<Hsv, byte>(src.Size);
+            CvInvoke.cvCvtColor(src, hsvFront, Emgu.CV.CvEnum.COLOR_CONVERSION.RGB2HSV);
+
+            if (colorsToMask.Count > 0)
+            {
+                getMask(src, colorsToMask[0], out dest, hueRange, strucSize);
             }
             else
             {
-                //more than one object
-
-                Logger.Instance.LogInfo("More than one object");
-
-                //check which gap between segments is the closest to the center of the image
-                int imageCenter = mask.Width / 2;
-                int closestStart = -1;
-                int closestEnd = -1;
-                int closestDist = -1;
-
-                for (int i = 1; i < objectSegments.Count; i++)
-                {
-                    int center = (objectSegments[i].start - ((objectSegments[i].start - objectSegments[i - 1].end) / 2));
-
-                    //calc distance to image center
-                    int dist = Math.Abs(center - imageCenter);
-
-                    //check the size of the gap, very small gaps will be ignored
-                    int gapSize = objectSegments[i].start - objectSegments[i - 1].end;
-
-                    if (gapSize > minGapSize)
-                    {
-                        if (closestDist == -1)
-                        {
-                            //first gap we see
-                            closestDist = dist;
-                            closestStart = objectSegments[i - 1].end;
-                            closestEnd = objectSegments[i].start;
-
-                        }
-                        else
-                        {
-                            if (dist < closestDist)
-                            {
-                                closestDist = dist;
-                                closestStart = objectSegments[i - 1].end;
-                                closestEnd = objectSegments[i].start;
-                            }
-                        }
-                    }              
-                }
-
-                //check for the possibility that multiple object were found, but no gap that was large enough
-                if (closestDist == -1)
-                {
-                    objectEnd = -1;
-                    objectToLeft = false;
-                    objectStart = -1;                   
-                    return hsvEvalReturn.Object_no_border;
-                }
-
-                objectEnd = closestEnd;
-                objectToLeft = false;
-                objectStart = closestStart;
-                Logger.Instance.LogInfo("Object to the rigth, with the end at " + objectEnd);
-
-                return hsvEvalReturn.Objects_with_gap;
-                //return hsvEvalReturn.Object_with_border;
-
+                //if the list is empty
+                dest = new Image<Gray, byte>(src.Width, src.Height, new Gray(0));
 
             }
-          
+
+            for (int i = 1; i < colorsToMask.Count; i++)
+            {
+                Image<Gray, byte> mask2;
+                getMask(src, colorsToMask[i], out mask2, hueRange, strucSize);
+
+                leftWindow.SetImage(mask2);
+
+                //add the two mask together
+                dest = dest.AddWeighted(mask2, 1, 1, 0);
+            }
+        }
+
+        private void getMask(Image<Hsv, byte> img, Hsv colorToFilter, out Image<Gray, byte> mask, int hueRange, int strucSize)
+        {
+            mask = img.InRange(new Hsv(colorToFilter.Hue - hueRange / 2, 0, 0), new Hsv(colorToFilter.Hue + hueRange / 2, 255, 255));
+
+            StructuringElementEx se = new StructuringElementEx(10, 10, 5, 5, Emgu.CV.CvEnum.CV_ELEMENT_SHAPE.CV_SHAPE_RECT);
+
+            CvInvoke.cvErode(mask, mask, se, strucSize);
+            CvInvoke.cvDilate(mask, mask, se, strucSize);
+
+        }
+
+        private void getMask(Image<Rgb, byte> img, Hsv colorToFilter, out Image<Gray, byte> mask, int hueRange, int strucSize)
+        {
+            Image<Hsv, byte> hsvFront = new Image<Hsv, byte>(img.Size);
+
+            CvInvoke.cvCvtColor(img, hsvFront, Emgu.CV.CvEnum.COLOR_CONVERSION.RGB2HSV);
+
+            getMask(hsvFront, colorToFilter, out mask, hueRange, strucSize);
+
+        }
+
+        private void moveAroundObject()
+        {
+
+            Logger.Instance.LogInfo("-------------------------");
+
+            Vector2 target = new Vector2(0, 30);
+            Vector2 robotPos = nodeNavigator.CurrentRobotPosition;
+
+            Image<Gray, byte> maskFront = new Image<Gray, byte>(front.Size);
+            Image<Gray, byte> maskLeft = new Image<Gray, byte>(left.Size);
+            Image<Gray, byte> maskRight = new Image<Gray, byte>(rigth.Size);
+
+            int hueRange = 10;
+            int strctSize = 2;
+
+            /* getMask(front, new Hsv(19, 0, 0),out maskFront,hueRange,strctSize);
+             getMask(left, new Hsv(19, 0, 0),out maskLeft, hueRange, strctSize);
+             getMask(rigth, new Hsv(19, 0, 0),out maskRight, hueRange, strctSize);*/
+
+            //mask the objects
+
+            List<Hsv> colorsToMask = om.getColorsOfCloseObstacals(nodeNavigator.CurrentRobotPosition, 5);
+
+
+
+            maskMultipleColors(front, out maskFront, colorsToMask, hueRange, strctSize);
+            maskMultipleColors(left, out maskLeft, colorsToMask, hueRange, strctSize);
+            maskMultipleColors(rigth, out maskRight, colorsToMask, hueRange, strctSize);
+
+
+            //check the fron image
+            bool frontStatus = objectInside(maskFront, maskFront.Height / 2);
+            bool leftStatus = objectInside(maskLeft, maskLeft.Height / 2);
+            bool rigthStatus = objectInside(maskRight, maskRight.Height / 2);
+
+
+
+            //get the direction vector to the target
+            //Vector2 dirVct = getVectorTotarget(_vrAibo.Position, target);
+
+
+            Vector2 dirVct = VctOp.getVectorTotarget(robotPos, target);
+
+            Vector2 currentHeading = nodeNavigator.getCurrentHeading();
+
+            double angle = Math.Abs(VctOp.calcAngleBeteenVectors(currentHeading, dirVct));
+            double angle2 = VctOp.calcAngleBeteenVectors(currentHeading, dirVct);
+            bool clockwise = VctOp.isClockwise(currentHeading, dirVct);
+
+            //check the angle between the current and the direction we need to go
+            Logger.Instance.LogInfo("Current heading " + currentHeading);
+            Logger.Instance.LogInfo("Dir vector " + dirVct);
+            //Logger.Instance.LogInfo("Angle "+angle);
+            //Logger.Instance.LogInfo("curent rot " + currentRotation);
+
+            Logger.Instance.LogInfo("Angle signed " + angle2);
+
+
+
+            if (angle < 45)
+            {
+                Logger.Instance.LogInfo("Need to move front");
+                //we rougly need to move to the front
+                if (frontStatus)
+                {
+                    //object in the front img
+                    if (leftStatus && rigthStatus)
+                    {
+                        //bboth sides are blocked
+                    }
+                    else if (!rigthStatus)
+                    {
+                        Logger.Instance.LogInfo("Turn rigth");
+                        //left is free
+                        //_vrAibo.Turn(-90);
+                        movementConsenter.objectDetectionReques(0, -90);
+                    }
+                    else
+                    {
+                        Logger.Instance.LogInfo("Turn L");
+                        //rigth is free
+                        //_vrAibo.Turn(+90);
+                        movementConsenter.objectDetectionReques(0, 90);
+                    }
+                }
+                else
+                {
+                    //_vrAibo.Walk(AiboSpeed);
+                    movementConsenter.objectDetectionReques(AiboSpeed, 0);
+                }
+            }
+            else if (angle > 45 && angle < 135)
+            {
+
+                Logger.Instance.LogInfo("need to move to a side");
+                //we need to check the side images
+                if (clockwise)
+                {
+                    Logger.Instance.LogInfo("need to turn left");
+                    //we need to move left
+                    if (leftStatus)
+                    {
+
+                        //object to the left
+                        //_vrAibo.Walk(AiboSpeed);
+                        movementConsenter.objectDetectionReques(AiboSpeed, 0);
+                    }
+                    else
+                    {
+                        //left ok
+                        //_vrAibo.Turn(+90);
+                        movementConsenter.objectDetectionReques(0, 90);
+
+                    }
+                }
+                else
+                {
+
+                    Logger.Instance.LogInfo("need to turn rigth");
+                    //we need to move rigth
+                    if (rigthStatus)
+                    {
+                        Logger.Instance.LogInfo("R is blocked");
+                        //object to the rigth
+                        //_vrAibo.Walk(AiboSpeed);
+                        movementConsenter.objectDetectionReques(AiboSpeed, 0);
+
+                    }
+                    else
+                    {
+                        Logger.Instance.LogInfo("R is free");
+                        //rigth ok
+                        //_vrAibo.Turn(-90);
+                        movementConsenter.objectDetectionReques(0, -90);
+
+                    }
+                }
+            }
+
+            frontWindow.SetImage(maskFront);
+            leftWindow.SetImage(maskLeft);
+            rigthWindow.SetImage(maskRight);
+
+            Logger.Instance.LogInfo("-------------------------");
+
+        }
+
+        public void filterViaHSV(Image<Hsv, byte> img, Hsv colorToFilter, out Image<Gray, byte> mask)
+        {
+
+            //CvInvoke.cvCvtColor(img, hsvImage, Emgu.CV.CvEnum.COLOR_CONVERSION.RGB2HSV);
+
+            //get a probe of the color we are intersted in
+
+            Hsv hsv_min = new Hsv(colorToFilter.Hue, 0, 0);
+            Hsv hsv_max = new Hsv(colorToFilter.Hue, 255, 255);
+
+
+            mask = img.InRange(hsv_min, hsv_max);
+
+            processedDB.SetImage(mask);
+
+
+        }
+
+        private bool objectInside(Image<Gray, byte> mask, int scanHeigth)
+        {
+            for (int i = 0; i < mask.Width; i++)
+            {
+                bool isOnObject = mask[scanHeigth, i].Intensity > 0;
+                if (isOnObject)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private hsvEvalReturn evalMask(Image<Gray, byte> mask, int scanHeigth, out int objectEnd, out bool objectToLeft)
         {
             //check if we start on free space or an object
             bool startOnObject = mask[scanHeigth, 0].Intensity > 0;
+
+           // Logger.Instance.LogInfo("Start on object: "+ startOnObject);
+
 
             for (int i = 0; i < mask.Width; i++)
             {
@@ -1042,6 +1335,8 @@ namespace Frame.VrAibo
                     //found a change
                     objectEnd = i;
 
+                    
+
                     //determine which side of the img the object was on
                     //since we started scanning from the left, this means starting in th object means the object is to the left
                     if (startOnObject)
@@ -1052,6 +1347,7 @@ namespace Frame.VrAibo
                     {
                         objectToLeft = false;
                     }
+
                     return hsvEvalReturn.Object_with_border;
                 }
             }
@@ -1070,7 +1366,6 @@ namespace Frame.VrAibo
                 return hsvEvalReturn.No_Object;
             }
         }
-       
 
         private void mergeSegments(ref List<Segment> objectSegments, int distanceThreshold)
         {
@@ -1097,7 +1392,12 @@ namespace Frame.VrAibo
                                 end = objectSegments[j].end;
                             }
                         }
+
+
+
                     }
+
+
                     objectSegmentsTmp.Add(new Segment(start, end, true));
                 }
             }
@@ -1121,11 +1421,11 @@ namespace Frame.VrAibo
 
             int heigth = 256 / 2;
 
-            int avrgDist = ImageOperations.getSegments(disp, center, distanceDB, out objectSegments, distThres, heigth);
+            int avrgDist = getSegments(disp, center, distanceDB, out objectSegments, distThres, heigth);
 
             int segmentMergeThreshold = 10;
 
-            //Logger.Instance.LogInfo("s " + objectSegments.Count);
+            Logger.Instance.LogInfo("s " + objectSegments.Count);
 
             mergeSegments(ref objectSegments, segmentMergeThreshold);
 
@@ -1179,6 +1479,177 @@ namespace Frame.VrAibo
                 }
 
             }
+
+            /*Logger.Instance.LogInfo("---------------");
+
+
+            if (avrgDist > 190)
+            {
+                mc.astimatedDistanceToObject = 5;
+
+                objectDetected = true;
+
+                //get the first segment that is an object, make sure there is one
+                if (objectSegments.Count > 1)
+                {
+                  //get the center of that segment
+                    int c = (objectSegments[0].end - objectSegments[0].start) / 2 + objectSegments[0].start;
+                    //get the probe
+                    colorfDetectedObject = hsvImage[heigth, c];
+
+                }
+
+            }
+
+            //check if on object was detected at all
+            if (objectDetected)
+            {
+                Image<Gray, byte> mask = new Image<Gray, byte>(center.Size);
+
+                colorfDetectedObject = hsvImage[256 / 2, 256 / 2];
+
+                filterViaHSV(hsvImage, colorfDetectedObject, out mask);
+
+                int objectStart = 0;
+                bool objectIsToTheLeft = true;
+
+                hsvEvalReturn r = evalMask(mask, 256 / 2, out objectStart, out objectIsToTheLeft);
+
+                if (r == hsvEvalReturn.No_Object)
+                {
+                    //something is wrong if we get here...
+                }
+                else if (r == hsvEvalReturn.Object_no_border)
+                {
+                    //the entire sceen is filled with the object
+                    //mc.objectDetectionRequstedMovement = true;
+                    //mc.turnFromObjectDetection = 45;
+                }
+                else
+                {
+                    //object with border
+                    //mc.objectDetectionRequstedMovement = true;
+
+                    int objectEnd;
+                    if (objectIsToTheLeft)
+                    {
+                        objectEnd = center.Width;
+                    }
+                    else
+                    {
+                        objectEnd = 0;
+                    }
+
+                    int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (objectEnd - ((objectEnd - objectStart) / 2));
+                    float phi = Alpha * diffX;
+
+                    //mc.turnFromObjectDetection = phi;
+
+
+                }
+
+
+                stuff.SetImage(disp);
+            }*/
+
+            //Image<Gray, short> binary = disp.Copy();
+
+            //CvInvoke.cvThreshold(disp, binary, 180, 255, Emgu.CV.CvEnum.THRESH.CV_THRESH_TOZERO_INV & Emgu.CV.CvEnum.THRESH.CV_THRESH_BINARY);
+
+            //processedDB.SetImage(binary);
+
+            //Logger.Instance.LogInfo("Distance to target "+avrgDist);
+
+
+            //int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (objectSegments[0].end - ((objectSegments[0].end - 0) / 2));
+            //float phi = Alpha * diffX;
+        }
+
+
+        private void moveAroundObject2()
+        {
+            Image<Gray, byte> maskFront = new Image<Gray, byte>(front.Size);
+            Image<Gray, byte> maskLeft = new Image<Gray, byte>(left.Size);
+            Image<Gray, byte> maskRight = new Image<Gray, byte>(rigth.Size);
+
+            //params
+            int hueRange = 10;
+            int strctSize = 5;
+
+            int scanHeigth = front.Height / 2;           
+            
+            
+            //mask the objects
+
+            List<Hsv> colorsToMask = om.getColorsOfCloseObstacals(nodeNavigator.CurrentRobotPosition, 5);
+
+            maskMultipleColors(front, out maskFront, colorsToMask, hueRange, strctSize);
+            maskMultipleColors(left, out maskLeft, colorsToMask, hueRange, strctSize);
+            maskMultipleColors(rigth, out maskRight, colorsToMask, hueRange, strctSize);
+
+            int objectEnd = 0;
+            bool objectToLeft;
+
+            hsvEvalReturn frontStatus = evalMask(maskFront, scanHeigth, out objectEnd, out objectToLeft);
+
+
+            //hsvEvalReturn frontStatus = evalMask(maskFront, scanHeigth, out objectEnd, out objectToLeft);
+
+            Logger.Instance.LogInfo("Object status "+ frontStatus);
+
+            if (frontStatus == hsvEvalReturn.No_Object)
+            {
+                //do nothing
+                //return;
+            }
+            else if(frontStatus == hsvEvalReturn.Object_no_border)
+            {
+                //with no border
+                movementConsenter.objectDetectionReques(0, 20);
+                //_vrAibo.Turn(20);
+            }else
+            {
+                //object with border
+                if (objectToLeft)
+                {
+                    //object to the left
+                    int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 5) - objectEnd;
+                    float phi = Alpha * diffX;
+
+                    Logger.Instance.LogInfo("Phi " + phi);
+
+                    //_vrAibo.Turn(phi);
+                    movementConsenter.objectDetectionReques(AiboSpeed, phi);
+
+                }
+                else
+                {
+
+                    if (_vrAibo.HeadYaw == -5)
+                    {
+
+                    }else
+                    {
+                        _vrAibo.HeadYaw = -5;
+                    }
+                    
+                    //object to the rigth
+                    int diffX = GLab.VirtualAibo.VrAibo.SurfaceWidth - (GLab.VirtualAibo.VrAibo.SurfaceWidth / 5) - objectEnd;
+                    float phi = Alpha * diffX;
+
+                    Logger.Instance.LogInfo("Phi " + phi);
+
+                    //_vrAibo.Turn(phi);
+                    movementConsenter.objectDetectionReques(AiboSpeed, phi);
+                }
+
+            }
+
+            frontWindow.SetImage(maskFront);
+            leftWindow.SetImage(maskLeft);
+            rigthWindow.SetImage(maskRight);
+
+
         }
 
         private bool TrackLine(out float turn)
@@ -1215,12 +1686,7 @@ namespace Frame.VrAibo
                 //Logger.Instance.LogInfo("distance: " + depth);
                 lastDepth = depth;
 
-            if (movementConsenter.busy())
-            {
-                movementConsenter.update();
-                //turn = 0;
-                //return true;
-            }
+
             //---------------------------
 
 
@@ -1240,12 +1706,40 @@ namespace Frame.VrAibo
             CvInvoke.cvSetImageCOI(channelRed.Ptr, 0);
 
 
+            /* if (moveBack)
+             {
 
-           // Logger.Instance.LogInfo("Pos "+_vrAibo.Position);
 
+                 if (movePairs.Count == 0)
+                 {
+
+                 }else
+
+                 if (movePairs.Count == 1)
+                 {
+                     moveBack = false;
+                     moveBackViaRecordedPath();
+                     justReturnedFromTrackBack = true;
+
+                     if (!movePairs[0].left && !movePairs[0].rigth && !movePairs[0].froont)
+                     {
+
+
+                         movePairs.RemoveAt(0);
+                     }
+
+                 }
+                 else
+                 {
+                     moveBackViaRecordedPath();
+                 }
+
+
+             }
+             else*/
+            {
                 if (picsTaken == 0)
                 {
-                    Logger.Instance.LogInfo("HEAD POS WHILE TAKING FRONT " + _vrAibo.HeadYaw);
 
                     StereoSGBM sgbm = new StereoSGBM(0, 16, 0, 0, 0, -1, 0, 7, 50, 1, StereoSGBM.Mode.SGBM);
 
@@ -1259,6 +1753,12 @@ namespace Frame.VrAibo
                     picsTaken++;
 
                     stuff.SetImage(disp);
+
+                    //_frmImage.SetImage(disp);
+
+
+
+
                 }
                 else if (picsTaken == 1)
                 {
@@ -1270,56 +1770,114 @@ namespace Frame.VrAibo
                 else if (picsTaken == 2)
                 {
                     //turn 90 left
-                    _vrAibo.HeadYaw = frontHeadPos;
+                    _vrAibo.HeadYaw = -10;
                     rigth = center.Copy();
                     picsTaken = 0;
                     //Logger.Instance.LogInfo("All Pics taken");
-                    if (!moveBack)
-                    {
-                        pathMovement();
-                    }
-                   
+                    moveBasedOnImage();
                     doStereoVisionStuff(front, disp);
 
-                 
-
-                    //List<Hsv> colorsToMask = om.getColorsOfCloseObstacals(nodeNavigator.CurrentRobotPosition, 10);
-
-
-                    //movementConsenter.pathDetectionRequest(AiboSpeed, 0);
                     //moveAroundObject();
 
                     moveAroundObject2();
 
-                    leftWindow.SetImage(left);
-                    rigthWindow.SetImage(rigth);
 
-                    frontWindow.SetImage(front);
+                    //Logger.Instance.LogInfo("At pos " + _vrAibo.Position);
 
+                    //Vector2 currentHeading = calcMovementVector(90, new Vector2(0, -1));
+
+                    //Logger.Instance.LogInfo("Heading " + currentHeading);
+
+                    /*Logger.Instance.LogInfo("At pos "+_vrAibo.Position);
+
+                    double angle = calcAngleBeteenVectors(new Vector2(0,-1),new Vector2(3,-3));
+                    Logger.Instance.LogInfo("angle: " + angle);
+
+                    double angle2 = calcAngleBeteenVectors(new Vector2(0, -1), new Vector2(-3, 3));
+                    Logger.Instance.LogInfo("angle: " + angle2);*/
+
+                    //frontWindow.SetImage(front);
+                    //leftWindow.SetImage(left);
+                    //rigthWindow.SetImage(rigth);
+
+
+                    //Logger.Instance.LogInfo("distance to object "+mc.astimatedDistanceToObject);
+                    
                     float executedMovement;
-                    float executedRotation;
+                    double executedRotation;
 
-                    bool returnRequestGranted = false;
+                    movementConsenter.execute(out executedMovement, out executedRotation);
 
-                    bool returnDone = movementConsenter.execute(out executedMovement, out executedRotation, out returnRequestGranted);
+                    nodeNavigator.addMovement(executedMovement, executedRotation);
 
-                    if (returnRequestGranted)
-                    {
-                        moveBack = true;
-                    }
 
-                   if (returnDone)
-                   {
-                       Logger.Instance.LogInfo("RETURN IS DONE");
-                       leftIsOldPath = true;
-                       rigthIsOld = true;
-                       moveBack = false;
-                   }
-                   
-                    //nodeNavigator.addMovement(executedMovement, executedRotation);
+
                 }
 
+            }
+
+
+
+
             _frmEyeCenter.SetImage(channelRed);
+
+            //Logger.Instance.LogInfo("At pos " + _vrAibo.Position);
+
+
+            //int avrgDist = getDistance(disp, center, distanceDB);
+
+            /* Image<Gray, byte> mask = new Image<Gray, byte>(center.Size);
+             Image<Hsv, byte> hsvImage = new Image<Hsv, byte>(center.Size);
+             CvInvoke.cvCvtColor(center, hsvImage, Emgu.CV.CvEnum.COLOR_CONVERSION.RGB2HSV);
+             Hsv colorToFilter = hsvImage[256 / 2, 256 / 2];
+
+             filterViaHSV(hsvImage, colorToFilter,out mask);
+
+             int objectStart =0;
+             bool objectIsToTheLeft = true;
+
+             hsvEvalReturn r = evalMask(mask, 256 / 2, out objectStart, out objectIsToTheLeft);
+
+
+             Logger.Instance.LogInfo("Eval says");
+             Logger.Instance.LogInfo("R value " + r);
+             Logger.Instance.LogInfo("Object to the left " + objectIsToTheLeft);
+
+             //Logger.Instance.LogInfo("At pos " + _vrAibo.Position);
+
+             List<Segment> objectSegments = new List<Segment>();
+
+             int avrgDist = getSegments(disp, center, distanceDB, out objectSegments);
+
+             Image<Gray, short> binary = disp.Copy();
+
+             CvInvoke.cvThreshold(disp, binary, 180, 255, Emgu.CV.CvEnum.THRESH.CV_THRESH_TOZERO_INV & Emgu.CV.CvEnum.THRESH.CV_THRESH_BINARY);*()
+
+             //processedDB.SetImage(binary);
+
+
+             //int diffX = (GLab.VirtualAibo.VrAibo.SurfaceWidth / 2) - (objectSegments[0].end - ((objectSegments[0].end - 0) / 2));
+             //float phi = Alpha * diffX;
+
+
+
+                 /*   if (phi != 0.0f)
+                    {
+                        _vrAibo.Turn(phi);
+                    }*/
+
+
+
+
+            //double avrgDist = getDistance(tmpRefImg, tmpRefImg, distanceDB);
+
+
+
+
+
+
+
+            //------------------------
 
             turn = 0; // Replace this with your calculated turn value
 
